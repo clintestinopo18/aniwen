@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101014" />
+    <meta
+      name="description"
+      content="Find your next obsession. Explore anime, manga and manhwa, build your own library, and pick up where you left off with Yoru."
+    />
+    <title>Yoru — Find your next obsession</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="vendor/hls.min.js" defer></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="header">
+      <a href="#home" class="logo" aria-label="Yoru home"
+        ><span class="logo-mark">夜</span>yoru<span class="logo-dot">.</span></a
+      >
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#home" data-nav="home">Discover</a
+        ><a href="#anime" data-nav="anime">Anime</a
+        ><a href="#manga" data-nav="manga">Manga</a
+        ><a href="#manhwa" data-nav="manhwa">Manhwa</a>
+      </nav>
+      <div class="header-actions">
+        <form id="header-search" role="search">
+          <span class="search-symbol" aria-hidden="true">⌕</span
+          ><input
+            id="search"
+            type="search"
+            placeholder="Find your next story…"
+            aria-label="Search titles"
+            autocomplete="off"
+          /><kbd>/</kbd>
+        </form>
+        <a
+          href="#library"
+          class="icon-link"
+          aria-label="My library"
+          title="My library"
+          ><svg viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z" /></svg
+          ><span class="library-count" id="library-count" hidden></span></a
+        ><a
+          href="#settings"
+          class="avatar"
+          aria-label="Settings"
+          title="Settings"
+          >Y</a
+        >
+      </div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+    <footer>
+      <a href="#home" class="logo">yoru<span class="logo-dot">.</span></a>
+      <p>A whole world of stories. A place to call yours.</p>
+      <div>
+        <a href="#settings">Connection & settings</a
+        ><a href="#about">About Yoru</a>
+      </div>
+      <span class="footer-note">Made for the stories that stay with you.</span>
+    </footer>
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <a href="#home" data-nav="home">Discover</a
+      ><a href="#anime" data-nav="anime">Anime</a
+      ><a href="#manga" data-nav="manga">Manga</a
+      ><a href="#manhwa" data-nav="manhwa">Manhwa</a
+      ><a href="#library" data-nav="library">My list</a>
+    </nav>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="confirm-dialog">
+      <form method="dialog">
+        <h2>Clear your library?</h2>
+        <p>
+          This removes saved titles and progress from this browser. Export a
+          backup first if you want to keep them.
+        </p>
+        <div class="actions">
+          <button value="cancel" class="button secondary">
+            Keep my library</button
+          ><button value="clear" class="button danger">Clear library</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

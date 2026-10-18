@@ -1,0 +1,8 @@
+{
+  "name": "yoru-library",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "check": "node --check server.mjs && node --check dist/app.js && node --check dist/catalog.js" },
+  "dependencies": { "@consumet/extensions": "1.8.8", "hls.js": "1.6.13" }
+}

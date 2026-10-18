@@ -1,0 +1,495 @@
+[
+  {
+    "slug": "frieren",
+    "id": 154587,
+    "title": {
+      "english": "Frieren: Beyond Journey’s End",
+      "romaji": "Sousou no Frieren"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg",
+    "episodes": 28,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2023
+    },
+    "genres": [
+      "Adventure",
+      "Drama",
+      "Fantasy"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "solo-leveling",
+    "id": 151807,
+    "title": {
+      "english": "Solo Leveling",
+      "romaji": "Ore dake Level Up na Ken"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151807-it355ZgzquUd.png"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/151807-37yfQA3ym8PA.jpg",
+    "episodes": 12,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2024
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Fantasy"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "jujutsu-kaisen",
+    "id": 113415,
+    "title": {
+      "english": "JUJUTSU KAISEN",
+      "romaji": "Jujutsu Kaisen"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx113415-LHBAeoZDIsnF.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/113415-jQBSkxWAAk83.jpg",
+    "episodes": 24,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2020
+    },
+    "genres": [
+      "Action",
+      "Drama",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "demon-slayer",
+    "id": 101922,
+    "title": {
+      "english": "Demon Slayer: Kimetsu no Yaiba",
+      "romaji": "Kimetsu no Yaiba"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101922-WBsBl0ClmgYL.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101922-33MtJGsUSxga.jpg",
+    "episodes": 26,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2019
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama",
+      "Fantasy",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "chainsaw-man",
+    "id": 127230,
+    "title": {
+      "english": "Chainsaw Man",
+      "romaji": "Chainsaw Man"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx127230-DdP4vAdssLoz.png"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/127230-o8IRwCGVr9KW.jpg",
+    "episodes": 12,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2022
+    },
+    "genres": [
+      "Action",
+      "Drama",
+      "Horror",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "spy-family",
+    "id": 140960,
+    "title": {
+      "english": "SPY x FAMILY",
+      "romaji": "SPY×FAMILY"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx140960-Kb6R5nYQfjmP.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/140960-Z7xSvkRxHKfj.jpg",
+    "episodes": 12,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2022
+    },
+    "genres": [
+      "Action",
+      "Comedy",
+      "Slice of Life",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "attack-on-titan",
+    "id": 16498,
+    "title": {
+      "english": "Attack on Titan",
+      "romaji": "Shingeki no Kyojin"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-buvcRTBx4NSm.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/16498-8jpFCOcDmneX.jpg",
+    "episodes": 25,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2013
+    },
+    "genres": [
+      "Action",
+      "Drama",
+      "Fantasy",
+      "Mystery"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "vinland-saga",
+    "id": 101348,
+    "title": {
+      "english": "Vinland Saga",
+      "romaji": "VINLAND SAGA"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101348-2fhDFPCuMNiz.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101348-pivKKffCAwAY.jpg",
+    "episodes": 24,
+    "chapters": null,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2019
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "berserk",
+    "id": 30002,
+    "title": {
+      "english": "Berserk",
+      "romaji": "Berserk"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30002-Cul4OeN7bYtn.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/30002-3TuoSMl20fUX.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 1989
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama",
+      "Fantasy",
+      "Horror",
+      "Psychological"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "one-piece",
+    "id": 30013,
+    "title": {
+      "english": "One Piece",
+      "romaji": "ONE PIECE"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30013-BeslEMqiPhlk.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/30013-hbbRZqC5MjYh.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 1997
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Comedy",
+      "Fantasy"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "vagabond",
+    "id": 30656,
+    "title": {
+      "english": "Vagabond",
+      "romaji": "Vagabond"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30656-9mW113O7rDnA.png"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/30656-XYzvRlsc3iK4.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 1998
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "blue-lock",
+    "id": 106130,
+    "title": {
+      "english": "Blue Lock",
+      "romaji": "Blue Lock"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx106130-yPNeuSu75ey1.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/106130-4UbnMTU80zur.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2018
+    },
+    "genres": [
+      "Action",
+      "Drama",
+      "Sports"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "dandadan",
+    "id": 132029,
+    "title": {
+      "english": "Dandadan",
+      "romaji": "Dandadan"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx132029-prGF4gePdSKv.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/132029-V1x9JAh3G8QK.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2021
+    },
+    "genres": [
+      "Action",
+      "Comedy",
+      "Drama",
+      "Romance",
+      "Sci-Fi",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "sakamoto-days",
+    "id": 125828,
+    "title": {
+      "english": "Sakamoto Days",
+      "romaji": "SAKAMOTO DAYS"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx125828-p78Z8SflkfmO.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/125828-wnmpFCNg0WkK.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2020
+    },
+    "genres": [
+      "Action",
+      "Comedy"
+    ],
+    "countryOfOrigin": "JP"
+  },
+  {
+    "slug": "solo-leveling-manhwa",
+    "id": 105398,
+    "title": {
+      "english": "Solo Leveling",
+      "romaji": "Na Honjaman Level Up"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105398-b673Vt5ZSuz3.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/105398-4UrEhdqZukrg.jpg",
+    "episodes": null,
+    "chapters": 201,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2018
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Fantasy"
+    ],
+    "countryOfOrigin": "KR"
+  },
+  {
+    "slug": "omniscient-reader",
+    "id": 119257,
+    "title": {
+      "english": "Omniscient Reader",
+      "romaji": "Jeonjijeok Dokja Sijeom"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx119257-Pi21aq3ey9GG.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/119257-RtxJMRCunHXc.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2020
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Fantasy"
+    ],
+    "countryOfOrigin": "KR"
+  },
+  {
+    "slug": "tower-of-god",
+    "id": 85143,
+    "title": {
+      "english": "Tower of God",
+      "romaji": "Sinui Tap"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85143-23oup3ETbFJk.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/85143-IKyCdaJKfa2M.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2010
+    },
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama",
+      "Fantasy",
+      "Mystery"
+    ],
+    "countryOfOrigin": "KR"
+  },
+  {
+    "slug": "the-horizon",
+    "id": 100568,
+    "title": {
+      "english": "The Horizon",
+      "romaji": "Supyeongseon"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx100568-4BC0PsdwU4bL.png"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/100568-BuzmQ7WSwG5H.jpg",
+    "episodes": null,
+    "chapters": 21,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2016
+    },
+    "genres": [
+      "Adventure",
+      "Drama",
+      "Psychological"
+    ],
+    "countryOfOrigin": "KR"
+  },
+  {
+    "slug": "the-boxer",
+    "id": 119174,
+    "title": {
+      "english": "The Boxer",
+      "romaji": "The Boxer"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/b119174-nFMZSHbrDDbt.png"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/119174-DoE2aiSp9DOn.jpg",
+    "episodes": null,
+    "chapters": 133,
+    "status": "FINISHED",
+    "startDate": {
+      "year": 2019
+    },
+    "genres": [
+      "Action",
+      "Drama",
+      "Sports"
+    ],
+    "countryOfOrigin": "KR"
+  },
+  {
+    "slug": "eleceed",
+    "id": 106929,
+    "title": {
+      "english": "Eleceed",
+      "romaji": "Eleceed"
+    },
+    "coverImage": {
+      "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx106929-flAUvHZDUz5v.jpg"
+    },
+    "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/106929-jYmT1n3Z0m46.jpg",
+    "episodes": null,
+    "chapters": null,
+    "status": "RELEASING",
+    "startDate": {
+      "year": 2018
+    },
+    "genres": [
+      "Action",
+      "Comedy",
+      "Supernatural"
+    ],
+    "countryOfOrigin": "KR"
+  }
+]
