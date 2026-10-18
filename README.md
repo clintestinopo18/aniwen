@@ -15,11 +15,11 @@ Open http://127.0.0.1:4173. The local app connects automatically to `/api` on th
 
 ## Hosting the Consumet server
 
-The private Sites deployment contains the static frontend. It does not run the Node server. Deploy this project to a Node-compatible host with `npm ci` as the install command and `npm start` as the start command. Set `HOST=0.0.0.0`, your host's `PORT`, and `ALLOWED_ORIGINS=https://yoru-anime-manga-clint.yellowcrow11.chatgpt.site`. Multiple origins can be comma-separated. Use HTTPS on the host, then enter `https://YOUR-SERVER/api` in Yoru's Connection & settings page and save it.
+The private Sites deployment contains the static frontend. The Consumet adapter is configured at `https://aniwen-consumet.onrender.com/api` on a free Render web service in Singapore. Render builds the GitHub `main` branch using `npm ci --ignore-scripts` and runs `node server.mjs`. Its environment sets `HOST=0.0.0.0`, `NODE_ENV=production`, and `ALLOWED_ORIGINS=https://yoru-anime-manga-clint.yellowcrow11.chatgpt.site`; Render supplies `PORT`. Multiple origins can be comma-separated. Free hosting can sleep when idle, so the first request may take longer.
 
 No paid host is provisioned automatically. Keep the local default binding (`127.0.0.1`) when running only on your computer. If exposing publicly, place rate limiting and access control at the host/reverse proxy. The bundled adapter limits concurrent work and caches short-lived responses, but CORS is not authentication.
 
-A compatible separately hosted Consumet REST API can also be used. Enter its actual base URL, which may omit `/api`. Supported routes are:
+API configuration belongs to the deployment: change `dist/config.js` and redeploy to change the HTTPS base URL or providers. Visitors have no API setup form, and old browser API settings are ignored. Local development automatically uses `/api`. A compatible separately hosted Consumet REST API can also be used by editing that configuration. Supported routes are:
 
 - `GET /anime/{provider}/{query}`
 - `GET /anime/{provider}/info?id=...`
@@ -37,6 +37,7 @@ The local adapter also exposes `GET /api/health`. Health confirms the server is 
 - Explicit edition selection, episode lists, HLS/MP4 playback, quality controls, and subtitle tracks when supplied by the provider.
 - Scroll and single-page chapter readers.
 - Favorites, planned/in-progress/completed statuses, automatic playback/reading progress, library export/import.
+- Profile-icon dashboard with editable name/bio, library totals, continue links, recently saved stories, and playback preferences. Profiles and libraries are browser-local, not cloud accounts. The old `#settings` link opens the profile dashboard for compatibility.
 - Responsive navigation, keyboard focus, reduced-motion support, and clear connection errors.
 
 The curated collection is a limited editorial selection, not live rankings. Collection artwork and basic metadata are credited to AniList and the respective creators/publishers in the site. Original short descriptions are in `dist/catalog.js`. `fetch-artwork.mjs` is a one-time asset preparation utility; it is not used by the website at runtime.

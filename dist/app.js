@@ -1,4 +1,5 @@
 import { loadCatalog, normalize, safeUrl } from "./catalog.js";
+import { API_CONFIG } from "./config.js";
 const $ = (s) => document.querySelector(s);
 const icons = {
   play: '<path d="m9 5 11 7-11 7z"/>',
@@ -45,13 +46,17 @@ function persist(key, value) {
     }
   }
 }
+const savedPreferences = read("settings", {});
 let prefs = {
-  base: isLocal ? location.origin + "/api" : "",
-  anime: "hianime",
-  manga: "mangadex",
-  manhwa: "mangadex",
-  autoplay: false,
-  ...read("settings", {}),
+  ...API_CONFIG,
+  base: new URL(isLocal ? "/api" : API_CONFIG.base, location.origin).href.replace(/\/+$/, ""),
+  autoplay: savedPreferences.autoplay === true,
+};
+// API destinations and providers are deployment settings, never visitor preferences.
+let profile = read("profile", {});
+profile = {
+  name: typeof profile.name === "string" ? profile.name.slice(0, 32) : "Story explorer",
+  bio: typeof profile.bio === "string" ? profile.bio.slice(0, 120) : "One more episode. One more chapter.",
 };
 let library = read("library", {}),
   remoteCache = read("remote", {}),
@@ -188,10 +193,7 @@ function networkError(error) {
   return error.message || "Could not reach the source. Please try again.";
 }
 async function api(path, base = prefs.base, signal = routeAbort?.signal) {
-  if (!base)
-    throw new Error(
-      "Connect a Consumet server in Settings to load episodes and chapters.",
-    );
+  base = prefs.base; // Ignore API URLs retained in older backups or cached titles.
   const u = new URL(base.replace(/\/+$/, "") + "/" + path.replace(/^\/+/, ""));
   const timeout = AbortSignal.timeout(22000);
   let response;
@@ -203,10 +205,10 @@ async function api(path, base = prefs.base, signal = routeAbort?.signal) {
   } catch (e) {
     if (e.name === "AbortError" || e.name === "TimeoutError")
       throw new Error(
-        "The source took too long to respond. Try again or choose another provider.",
+        "The source took too long to respond. Please try again shortly.",
       );
     throw new Error(
-      "Cannot reach the Consumet server. Check the URL, HTTPS, and the server’s allowed origins.",
+      "The story service is temporarily unavailable. Please try again later.",
     );
   }
   let data;
@@ -214,7 +216,7 @@ async function api(path, base = prefs.base, signal = routeAbort?.signal) {
     data = await response.json();
   } catch {
     throw new Error(
-      "The server did not return API data. Check the API base URL.",
+      "The story service is not available yet. You can still browse and save titles.",
     );
   }
   if (!response.ok)
@@ -271,7 +273,7 @@ async function details(item) {
   return data;
 }
 function connectionNotice() {
-  return `<div class="notice">Episodes and chapters need a connected Consumet server. <a href="#settings">Open connection settings ${icon("arrow")}</a></div>`;
+  return `<div class="notice">Episodes and chapters are temporarily unavailable. Your library is still ready to explore.</div>`;
 }
 function home() {
   const f = catalog[0];
@@ -336,7 +338,7 @@ function browse(kind, params) {
     )
     .join(
       "",
-    )}</select></label><span class="result-count">${list.length} curated titles</span></div><div class="collection-grid">${list.length ? list.map((i) => card(i)).join("") : empty("No stories in this filter", "Try another genre to discover something new.")}</div><div class="notice">Looking for something else? <a href="#search?type=${kind}">Search your connected ${title.toLowerCase()} provider.</a></div></div>`;
+    )}</select></label><span class="result-count">${list.length} curated titles</span></div><div class="collection-grid">${list.length ? list.map((i) => card(i)).join("") : empty("No stories in this filter", "Try another genre to discover something new.")}</div><div class="notice">Looking for something else? <a href="#search?type=${kind}">Search more ${title.toLowerCase()} titles.</a></div></div>`;
   ["genre-filter", "sort-filter"].forEach((id) =>
     $("#" + id).addEventListener("change", () => {
       location.hash = `${kind}?genre=${encodeURIComponent($("#genre-filter").value)}&sort=${$("#sort-filter").value}`;
@@ -376,7 +378,7 @@ function libraryPage(params) {
     )
     .join(
       "",
-    )}</select></label></div><div class="collection-grid">${entries.length ? entries.map((v) => card(v.item, true)).join("") : empty("Your next chapter starts here", "Save a title with the + button and it will have a home right here.", `<a href="#home" class="button">Discover stories ${icon("arrow")}</a>`)}</div><p class="tiny-label" style="margin-top:25px">Your library is saved in this browser. Export a backup from Settings to move it to another device.</p></div>`;
+    )}</select></label></div><div class="collection-grid">${entries.length ? entries.map((v) => card(v.item, true)).join("") : empty("Your next chapter starts here", "Save a title with the + button and it will have a home right here.", `<a href="#home" class="button">Discover stories ${icon("arrow")}</a>`)}</div><p class="tiny-label" style="margin-top:25px">Your library is saved in this browser. Export a backup from your profile to move it to another device.</p></div>`;
   $("#library-filter").onchange = (e) => {
     location.hash = `library?type=${libraryFilter}&status=${e.target.value}`;
   };
@@ -404,7 +406,7 @@ async function searchPage(params, version) {
     )
     .join(
       "",
-    )}</div></div><p class="source-label">From the Yoru collection</p><div class="collection-grid">${local.length ? local.map((i) => card(i)).join("") : empty("No matches in the collection", "Try another title, or search the connected provider below.")}</div><section class="section"><div class="section-head"><h2>Beyond the collection</h2></div><div id="remote-results">${!q ? empty("A bigger world awaits", "Search a title above to explore your connected Consumet provider.") : !prefs.base ? connectionNotice() : loading("Searching your provider…")}</div></section></div>`;
+    )}</div></div><p class="source-label">From the Yoru collection</p><div class="collection-grid">${local.length ? local.map((i) => card(i)).join("") : empty("No matches in the collection", "Try another title, or search the connected provider below.")}</div><section class="section"><div class="section-head"><h2>Beyond the collection</h2></div><div id="remote-results">${!q ? empty("A bigger world awaits", "Search a title above to explore Yoru’s story service.") : !prefs.base ? connectionNotice() : loading("Searching your provider…")}</div></section></div>`;
   $("#search-page-form").onsubmit = (e) => {
     e.preventDefault();
     location.hash = `search?q=${encodeURIComponent($("#page-query").value.trim())}&type=${searchType}`;
@@ -426,7 +428,7 @@ async function searchPage(params, version) {
             ? `<div class="collection-grid">${r.value.map((i) => card(i)).join("")}</div>`
             : empty(
                 "No results from this provider",
-                "Try a shorter title or choose another provider in Settings.",
+                "Try a shorter title or search again later.",
               )
           : `<div class="notice error">${esc(networkError(r.reason))}</div>`;
     });
@@ -442,8 +444,8 @@ function matches(items) {
     ? `<p class="tiny-label">Choose the matching edition from the provider. Availability varies by source.</p>${items.map((i) => `<a class="provider-match" href="${link(i)}"><img src="${esc(safeUrl(i.image))}" alt="" loading="lazy"><span><strong>${esc(i.title)}</strong><small>${esc(i.provider)} · ${esc(i.year || pretty(i.kind))}</small></span><span>${icon("arrow")}</span></a>`).join("")}`
     : empty(
         "No matching editions",
-        "Try searching an alternate title or selecting another provider in Settings.",
-        `<a class="button secondary" href="#settings">Connection settings</a>`,
+        "Try searching an alternate title or check again later.",
+        `<a class="button secondary" href="#profile">My profile</a>`,
       );
 }
 function sourceCredits(data, unit) {
@@ -481,7 +483,7 @@ async function titlePage(key, version) {
   }
 }
 function errorPanel(error, key) {
-  return `<div class="notice error">${esc(networkError(error))}</div><div class="actions"><button class="button secondary" data-find="${esc(key)}">Try again</button><a class="button secondary" href="#settings">Connection settings</a></div>`;
+  return `<div class="notice error">${esc(networkError(error))}</div><div class="actions"><button class="button secondary" data-find="${esc(key)}">Try again</button><a class="button secondary" href="#profile">My profile</a></div>`;
 }
 async function findEdition(key) {
   const item = all.get(key),
@@ -758,82 +760,50 @@ async function readerPage(key, params, version) {
         `<div class="content section">${empty("Chapter unavailable", esc(networkError(e)), `<a href="${link(item)}" class="button secondary">Back to chapters</a>`)}</div>`;
   }
 }
-function providerOptions(kind) {
-  const options =
-    kind === "anime"
-      ? ["hianime", "animekai", "animepahe"]
-      : ["mangadex", "mangapill", "comick", "mangareader", "weebcentral"];
-  return options
-    .map(
-      (p) =>
-        `<option ${prefs[kind] === p ? "selected" : ""} value="${p}">${p}</option>`,
-    )
-    .join("");
+function updateProfileAvatar() {
+  const avatar = document.querySelector(".header-actions .avatar");
+  if (avatar) avatar.textContent = Array.from(profile.name.trim() || "Y")[0].toUpperCase();
 }
-function settings() {
-  main.innerHTML = `<div class="content settings-layout"><div class="page-head"><div class="eyebrow">Make it yours</div><h1>A little fine-tuning.</h1><p>Your connection, your library, your reading rhythm.</p></div><section class="settings-card"><h2>Consumet connection</h2><p>Connect a hosted Consumet API to search beyond the collection and load episodes and chapters. The included local server works when you run Yoru on your computer.</p><form id="connection-form"><label class="field"><span>API base URL</span><input id="api-base" type="url" value="${esc(prefs.base)}" placeholder="https://your-consumet-server.example/api"><small>Use your server’s API root. Hosted websites require an HTTPS endpoint with CORS access for this site. Leave blank to browse the curated collection.</small></label><div class="field-pair"><label class="field"><span>Anime provider</span><select id="anime-provider">${providerOptions("anime")}</select></label><label class="field"><span>Manga provider</span><select id="manga-provider">${providerOptions("manga")}</select></label></div><label class="field"><span>Manhwa provider</span><select id="manhwa-provider">${providerOptions("manhwa")}</select><small>Manga providers may include Korean comics. Check the matching edition when searching.</small></label><div class="actions"><button class="button" type="submit">Save connection</button><button class="button secondary" type="button" id="test-connection">Test connection</button></div><div id="connection-result" role="status"></div></form></section><section class="settings-card"><h2>Playback</h2><label class="setting-line"><input type="checkbox" id="autoplay" ${prefs.autoplay ? "checked" : ""}>Automatically play and advance to the next episode</label><p>Playback position and reading progress are saved automatically on this browser.</p></section><section class="settings-card"><h2>Keep your library close</h2><p>Save a backup before changing browsers. Your library lives on this device; there’s no account to sign into.</p><div class="actions"><button class="button secondary" id="export-library">Export library</button><button class="button secondary" id="import-library">Import backup</button><input id="backup-file" type="file" accept="application/json,.json" hidden><button class="button secondary" id="clear-library">Clear library</button></div></section></div>`;
-  const formPrefs = () => {
-    const raw = $("#api-base").value.trim().replace(/\/+$/, "");
-    if (raw) {
-      const u = new URL(raw);
-      const local = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
-      if (u.username || u.password || u.search || u.hash)
-        throw new Error(
-          "Use a plain API base URL without credentials, query parameters, or a fragment.",
-        );
-      if (
-        u.protocol !== "https:" &&
-        !(u.protocol === "http:" && local && isLocal)
-      )
-        throw new Error(
-          "Use an HTTPS API URL. Local HTTP is supported only in the local version.",
-        );
-    }
-    return {
-      base: raw,
-      anime: $("#anime-provider").value,
-      manga: $("#manga-provider").value,
-      manhwa: $("#manhwa-provider").value,
-      autoplay: prefs.autoplay,
-    };
-  };
-  $("#connection-form").onsubmit = (e) => {
+function resumeLink(entry) {
+  if (entry.progress?.id && !entry.item.editorial) {
+    return `#${entry.item.kind === "anime" ? "watch" : "read"}/${encodeURIComponent(entry.item.key)}?unit=${encodeURIComponent(entry.progress.id)}`;
+  }
+  return link(entry.item);
+}
+function profilePage() {
+  const entries = Object.values(library).filter((v) => v?.item?.key);
+  const active = entries.filter((v) => v.status === "active").sort((a, b) => b.updatedAt - a.updatedAt);
+  const completed = entries.filter((v) => v.status === "completed");
+  const recent = [...entries].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 4);
+  const initial = Array.from(profile.name.trim() || "Y")[0].toUpperCase();
+  const journey = active.slice(0, 3).map((v) => `<a class="journey-row" href="${resumeLink(v)}"><img src="${esc(safeUrl(v.item.image))}" alt="" loading="lazy"><span><small>${pretty(v.item.kind)}</small><strong>${esc(v.item.title)}</strong><span>${v.progress?.number ? esc((v.item.kind === "anime" ? "Episode " : "Chapter ") + v.progress.number) : "Ready when you are"}${Number.isInteger(v.progress?.page) ? " · Page " + (v.progress.page + 1) : ""}</span></span><span class="journey-go">${icon(v.item.kind === "anime" ? "play" : "book")}</span></a>`).join("");
+  main.innerHTML = `<div class="content profile-dashboard">
+    <div class="profile-heading"><div><div class="eyebrow">Your corner of Yoru</div><h1>My profile<span>.</span></h1></div><span class="device-badge"><span></span>Saved on this device</span></div>
+    <section class="profile-banner" aria-label="Your profile"><div class="profile-identity"><div class="profile-avatar" aria-hidden="true">${esc(initial)}</div><div><span class="tiny-label">THE NEXT CHAPTER IS YOURS</span><h2>${esc(profile.name)}</h2><p>${esc(profile.bio)}</p></div></div><a class="button secondary" href="#library">${icon("bookmark")}My library</a></section>
+    <div class="profile-stats"><a href="#library"><span class="stat-icon">${icon("bookmark")}</span><div><strong>${entries.length}</strong><span>Saved stories</span></div>${icon("arrow")}</a><a href="#library?status=active"><span class="stat-icon">${icon("play")}</span><div><strong>${active.length}</strong><span>In progress</span></div>${icon("arrow")}</a><a href="#library?status=completed"><span class="stat-icon">${icon("check")}</span><div><strong>${completed.length}</strong><span>Completed</span></div>${icon("arrow")}</a></div>
+    <div class="profile-columns"><div class="profile-main">
+      <section class="profile-panel"><div class="section-head"><div><div class="eyebrow">Pick up where you left off</div><h2>Continue your journey</h2></div><a class="text-link" href="#library?status=active">View all →</a></div>${journey || `<div class="profile-empty"><span>${icon("book")}</span><h3>Your next adventure is waiting.</h3><p>Start a story or mark a saved title as in progress.<br>Your watch and reading progress will appear here.</p><a href="#home" class="button">Discover stories ${icon("arrow")}</a></div>`}</section>
+      <section class="profile-panel"><div class="section-head"><h2>Your worlds</h2><span class="tiny-label">A home for every story</span></div><div class="profile-worlds">${["anime", "manga", "manhwa"].map((kind, i) => `<a href="#library?type=${kind}" class="profile-world world-${kind}"><span>0${i + 1} / ${icon(kind === "anime" ? "play" : "book")}</span><strong>${pretty(kind)}</strong><small>${entries.filter((v) => v.item.kind === kind).length} saved <span>↗</span></small></a>`).join("")}</div></section>
+      <section class="profile-panel"><div class="section-head"><h2>Recently saved</h2><a class="text-link" href="#library">Open library →</a></div>${recent.length ? `<div class="profile-recent">${recent.map((v) => `<a href="${link(v.item)}"><img src="${esc(safeUrl(v.item.image))}" alt="${esc(v.item.title)} cover" loading="lazy"><strong>${esc(v.item.title)}</strong><span>${pretty(v.item.kind)}</span></a>`).join("")}</div>` : `<p class="profile-note">Tap + on any title to make it part of your collection.</p>`}</section>
+    </div><aside class="profile-side">
+      <section class="profile-panel"><div class="eyebrow">Make yourself at home</div><h2>Profile details</h2><form id="profile-form"><label class="field"><span>Display name</span><input id="profile-name" maxlength="32" required value="${esc(profile.name)}" autocomplete="nickname"></label><label class="field"><span>A little about you</span><textarea id="profile-bio" maxlength="120" rows="3">${esc(profile.bio)}</textarea></label><button type="submit" class="button">Save profile</button><p class="profile-note">A local profile, just for you. No account or cloud sync.</p></form></section>
+      <section class="profile-panel"><h2>Playback</h2><label class="setting-line"><input type="checkbox" id="autoplay" ${prefs.autoplay ? "checked" : ""}><span>Autoplay next episode<small>Keep the story going automatically.</small></span></label></section>
+      <section class="profile-panel profile-backup"><h2>Your library, kept safe</h2><p>Take your collection with you when changing browsers.</p><div class="backup-actions"><button class="button secondary" id="export-library">Export library ↓</button><button class="button secondary" id="import-library">Import backup ↑</button></div><input id="backup-file" type="file" accept="application/json,.json" hidden><details><summary>Manage saved data</summary><p>This only affects this browser. Export a backup first.</p><button class="button secondary" id="clear-library">Clear library</button></details></section>
+    </aside></div></div>`;
+  $("#profile-form").onsubmit = (e) => {
     e.preventDefault();
-    try {
-      prefs = formPrefs();
-      persist("settings", prefs);
-      detailCache.clear();
-      $("#connection-result").innerHTML =
-        '<div class="notice success">Connection settings saved.</div>';
-      toast("Connection saved");
-    } catch (e) {
-      $("#connection-result").innerHTML =
-        `<div class="notice error">${esc(e.message)}</div>`;
-    }
+    const name = $("#profile-name").value.trim();
+    if (!name) { $("#profile-name").setCustomValidity("Enter a display name."); $("#profile-name").reportValidity(); return; }
+    profile = { name: name.slice(0, 32), bio: $("#profile-bio").value.trim().slice(0, 120) };
+    persist("profile", profile);
+    updateProfileAvatar();
+    profilePage();
+    toast("Profile saved");
   };
-  $("#test-connection").onclick = async () => {
-    const button = $("#test-connection"),
-      out = $("#connection-result");
-    button.disabled = true;
-    out.innerHTML = loading("Testing the selected providers…");
-    try {
-      const config = formPrefs();
-      const checks = [["Anime", `anime/${config.anime}/frieren`], ["Manga", `manga/${config.manga}/one%20piece`], ["Manhwa", `manga/${config.manhwa}/solo%20leveling`]];
-      const results = await Promise.allSettled(checks.map(async ([label, path]) => {
-        const result = await api(path, config.base);
-        if (!Array.isArray(result.results)) throw new Error("Incompatible API response.");
-        return `${label}: provider responded with ${result.results.length} results.`;
-      }));
-      out.innerHTML = results.map((r, i) => `<div class="notice ${r.status === "fulfilled" ? "success" : "error"}">${esc(r.status === "fulfilled" ? r.value : `${checks[i][0]}: ${networkError(r.reason)}`)}</div>`).join("");
-    } catch (e) {
-      out.innerHTML = `<div class="notice error">${esc(networkError(e))}</div>`;
-    } finally {
-      button.disabled = false;
-    }
-  };
+  $("#profile-name").oninput = (e) => e.target.setCustomValidity("");
   $("#autoplay").onchange = (e) => {
     prefs.autoplay = e.target.checked;
-    persist("settings", prefs);
+    persist("settings", { autoplay: prefs.autoplay });
     toast("Playback preference saved");
   };
   $("#export-library").onclick = () => {
@@ -889,6 +859,7 @@ function settings() {
       for (const v of Object.values(clean)) remember(v.item);
       persist("library", library);
       count();
+      profilePage();
       toast("Library restored");
     } catch (e) {
       toast(e.message || "Could not read the backup.");
@@ -897,7 +868,7 @@ function settings() {
   $("#clear-library").onclick = () => $("#confirm-dialog").showModal();
 }
 function about() {
-  main.innerHTML = `<div class="content settings-layout"><div class="page-head"><div class="eyebrow">The night is yours</div><h1>Welcome to Yoru.</h1><p>A home for your anime, manga, and manhwa adventures.</p></div><section class="settings-card"><h2>Find your next obsession</h2><p>Browse a handpicked collection, find editions through your connected Consumet server, and keep your favorites in one place. The video player supports compatible HLS and MP4 sources; the reader offers continuous scrolling and single-page modes.</p><h3>Artwork & sources</h3><p>Collection artwork and title metadata were retrieved from AniList. Artwork belongs to the respective creators and publishers. Featured selections are editorial picks, not live popularity rankings. Consumet supplies provider search and content references when connected; availability depends on the selected provider.</p><h3>Your data stays with you</h3><p>Favorites, progress, and connection preferences are stored in your browser. Export your library from Settings for a backup. Connecting a server sends search requests to that server. Video and chapter images load from the source URLs it returns.</p><div class="actions"><a href="#home" class="button">Explore Yoru ${icon("arrow")}</a><a href="#settings" class="button secondary">Connection settings</a></div></section></div>`;
+  main.innerHTML = `<div class="content settings-layout"><div class="page-head"><div class="eyebrow">The night is yours</div><h1>Welcome to Yoru.</h1><p>A home for your anime, manga, and manhwa adventures.</p></div><section class="settings-card"><h2>Find your next obsession</h2><p>Browse a handpicked collection, find editions through Yoru’s story service, and keep your favorites in one place. The video player supports compatible HLS and MP4 sources; the reader offers continuous scrolling and single-page modes.</p><h3>Artwork & sources</h3><p>Collection artwork and title metadata were retrieved from AniList. Artwork belongs to the respective creators and publishers. Featured selections are editorial picks, not live popularity rankings. Consumet supplies provider search and content references when connected; availability depends on the selected provider.</p><h3>Your data stays with you</h3><p>Your profile, favorites, and progress are stored in this browser, not a cloud account. Export your library from your profile for a backup. Search requests use Yoru’s managed story service. Video and chapter images load from the source URLs it returns.</p><div class="actions"><a href="#home" class="button">Explore Yoru ${icon("arrow")}</a><a href="#profile" class="button secondary">My profile</a></div></section></div>`;
 }
 async function render() {
   routeVersion++;
@@ -932,7 +903,7 @@ async function render() {
   document.title =
     page === "home"
       ? "Yoru — Find your next obsession"
-      : `${all.get(key)?.title || { anime: "Anime", manga: "Manga", manhwa: "Manhwa", library: "My library", search: "Search", settings: "Settings", about: "About" }[page] || "Yoru"} · Yoru`;
+      : `${all.get(key)?.title || { anime: "Anime", manga: "Manga", manhwa: "Manhwa", library: "My library", search: "Search", profile: "My profile", settings: "My profile", about: "About" }[page] || "Yoru"} · Yoru`;
   try {
     if (page === "home") home();
     else if (["anime", "manga", "manhwa"].includes(page)) browse(page, params);
@@ -941,7 +912,7 @@ async function render() {
     else if (page === "title") await titlePage(key, version);
     else if (page === "watch") await watchPage(key, params, version);
     else if (page === "read") await readerPage(key, params, version);
-    else if (page === "settings") settings();
+    else if (page === "profile" || page === "settings") profilePage();
     else if (page === "about") about();
     else missing();
   } catch (e) {
@@ -1004,6 +975,7 @@ $("#confirm-dialog").addEventListener("close", () => {
     library = {};
     persist("library", library);
     count();
+    if (["#profile", "#settings", "#library"].some((route) => location.hash.startsWith(route))) render();
     toast("Library cleared");
   }
 });
@@ -1012,9 +984,11 @@ window.addEventListener("storage", (e) => {
   if (e.key === "yoru-library") {
     library = read("library", {});
     count();
-    if (location.hash.startsWith("#library")) render();
+    if (["#library", "#profile", "#settings"].some((route) => location.hash.startsWith(route))) render();
   }
+  if (e.key === "yoru-profile") { const next = read("profile", {}); if (typeof next.name === "string" && typeof next.bio === "string") { profile = {name: next.name.slice(0, 32), bio: next.bio.slice(0, 120)}; updateProfileAvatar(); if (location.hash.startsWith("#profile")) render(); } }
 });
+updateProfileAvatar();
 main.innerHTML = loading("Opening your next world…");
 try {
   catalog = await loadCatalog();

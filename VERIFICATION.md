@@ -1,5 +1,15 @@
 # Build verification — 2026-10-18
 
+## Profile and hosted API update — 2026-10-19 (Asia/Manila)
+
+- Profile icon opens the dashboard; name and bio survive a browser reload.
+- Legacy `#settings` opens the same dashboard with no API URL/provider controls.
+- Mobile profile checked at 390px viewport: no horizontal overflow (375px content), visible profile icon, stacked panels.
+- Fixed API destination is deployment-owned; old stored API preferences are ignored. Local development keeps the same-origin adapter.
+- Render service `aniwen-consumet` is live on the free plan in Singapore. `/api/health` returned 200 with the exact Sites origin in its CORS response.
+- Hosted MangaDex Solo Leveling search returned seven results. Hosted Hianime search timed out with 504; AnimeKai and AnimePahe returned upstream 502. Server health does not mean anime playback is available.
+- JavaScript syntax checks and `git diff --check` passed.
+
 ## Passed
 
 - JavaScript syntax: server.mjs, dist/app.js, dist/catalog.js.
@@ -16,8 +26,8 @@
 - Hianime timed out / returned an upstream 522. AnimeKai failed DNS resolution. AnimePahe timed out. These are provider availability failures, not verified playback.
 - The tested Solo Leveling MangaDex edition returned zero available chapters. Not every searchable title has readable chapters.
 - Video playback, quality switching, subtitles, reader page loading, and resume behavior are implemented but have not been verified end-to-end with working live media.
-- Library import/export and connection diagnostics are implemented but were not end-to-end browser tested.
-- This private static deployment does not host the Node/Consumet service. A separately hosted HTTPS API is required for live online search, reading, and playback.
+- Library import/export is implemented but was not end-to-end browser tested.
+- The private static frontend connects to the separately hosted Render API. Free hosting may sleep when idle; provider availability is independent of server health.
 - No load test, production security audit, cloud account synchronization, payments, advertising, or content licensing is included.
 
 The 20-title collection is an editorial starter collection, not live trending data or a claim of streaming availability. The bundled server uses @consumet/extensions 1.8.8. Do not treat successful API health as proof that external providers work.

@@ -113,7 +113,7 @@ async function getData(key, fn) {
           () =>
             reject(
               Object.assign(
-                new Error("The provider timed out. Try a different provider."),
+                new Error("The story service timed out. Please try again later."),
                 { status: 504 },
               ),
             ),
@@ -239,7 +239,7 @@ const server = http.createServer(async (req, res) => {
     const status = error.status || 502;
     const message = error.status
       ? error.message
-      : "The upstream provider is unavailable. Try another provider in Settings.";
+      : "The story service is temporarily unavailable. Please try again later.";
     console.error(
       `[${new Date().toISOString()}] ${req.url?.split("?")[0]}: ${error.message}`,
     );
