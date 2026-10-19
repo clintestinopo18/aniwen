@@ -1,5 +1,16 @@
 # Build verification — 2026-10-18
 
+## MegaPlay provider — 2026-10-19
+
+- Observed AniZen's One Piece HD-1 iframe using `megaplay.buzz/stream/s-2/2142/sub`. Integrated MegaPlay's documented AniList-ID embeds independently, not AniZen's internal endpoints or application code.
+- Live AniList search returned Frieren and the info endpoint returned 28 episodes. Local HTTP health/info/embed route: 200; malformed episode ID: 400.
+- Browser verified actual Frieren episode 1 sub video: 1920×1080, readyState 4, unpaused, time advanced from 61.86 to 68.53 seconds, duration 1559.92 seconds. This is real media playback, not only a loaded iframe.
+- Next-episode navigation loaded episode 2 sub and video advanced. Switching to dub loaded the documented `/2/dub` iframe and played with duration 1560.04 seconds, currentTime 59.69 seconds.
+- Profile showed saved Episode 2 after playback. Leaving the watch route removed the iframe. Continue links support editorial anime and preserve saved sub/dub mode; exact timestamp seeking is not promised.
+- All 10 offline tests passed, covering the old adapter and the new URL validation, metadata mapping, aired episodes, exact-origin/current-frame progress validation, and upstream errors. JavaScript syntax checks passed.
+- MegaPlay explicitly refuses sandboxed frames; the integration uses its standard cross-origin iframe. Third-party advertisements/pop-ups and incomplete title/audio mappings remain possible. No distribution/monetization rights are established by these checks.
+- These checks supersede the older blanket statement that no video playback has been verified; legacy Aniwatch/Consumet failures and manga-reader limitations below still apply.
+
 ## Self-hosted Aniwatch adapter — 2026-10-19
 
 - Added the official npm `aniwatch@2.27.9` package and an independent adapter for the reference project's `/api/v2/hianime` routes. Existing Consumet and MangaDex routes remain available.

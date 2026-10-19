@@ -30,7 +30,20 @@ API configuration belongs to the deployment: change `dist/config.js` and redeplo
 
 The local adapter also exposes `GET /api/health`. Health confirms the server is running, not that third-party providers work.
 
-## Self-hosted Aniwatch API
+## MegaPlay anime playback (default)
+
+AniZen's active HD-1 iframe was observed using MegaPlay. Aniwen now uses the same provider's [documented iframe API](https://megaplay.buzz/api), with AniList metadata fetched by the Node server. No AniZen code or private endpoint is copied. The frontend default is `anime: "megaplay"`; manga/manhwa providers are unchanged.
+
+- `/api/anime/megaplay/Frieren` searches AniList.
+- `/api/anime/megaplay/info?id=154587` returns metadata and an aired-episode guide.
+- `/api/anime/megaplay/watch?episodeId=154587%3A1&category=sub` returns an embed URL, not extracted video files.
+- The browser loads `https://megaplay.buzz/stream/ani/{anilistId}/{episode}/{sub|dub}`. Episode selection, previous/next, and sub/dub controls are included.
+
+The player is cross-origin and requires an ordinary, unsandboxed iframe; MegaPlay refuses sandboxed embeds. It may show third-party ads or pop-ups. No local library or profile data is sent to it. Progress messages are accepted only from the current iframe window and exact MegaPlay origin. Progress and episode completion are saved locally when reported, but the provider has no documented seek command for restoring a saved timestamp. Episode lists are metadata, not proof of playable streams: ID mappings, regional availability, and sub/dub coverage may vary. This integration does not establish distribution or monetization rights.
+
+Render auto-deploy is disabled on the existing service: after pushing the GitHub `main` branch, trigger a manual deployment and verify it is live before publishing the frontend. No extra paid service is required.
+
+## Self-hosted Aniwatch API (legacy)
 
 The same Node process now runs `aniwatch@2.27.9`; no separate API URL, database, or paid server is required. This is an independently written adapter, not a copy of AniProject's application. It implements the subset of Aniwatch v2 used in that reference project:
 
@@ -42,7 +55,7 @@ The same Node process now runs `aniwatch@2.27.9`; no separate API URL, database,
 
 Versioned success responses wrap the upstream result in `{ "success": true, "data": ... }`. Errors have a non-2xx status and `{ "success": false, "message": ... }`. The normalized `/api/anime/aniwatch/{query}`, `/info?id=...`, and `/watch?episodeId=...` routes also fit Yoru's existing player. Episode IDs containing `?ep=` must be URL-encoded when used as query values. Supported source options are `hd-1`/`hd-2` and `sub`/`dub`/`raw`.
 
-The deployment-owned `ANIWATCH_DOMAIN` defaults to `hianimez.to`, the domain advertised in the package documentation. The package's built-in `aniwatchtv.to` returned 404 in testing; the documented domain also failed from the local machine. This is not a guarantee that the upstream will serve episodes from your host. The frontend's existing default is retained until Aniwatch passes a real playback check; to select the adapter after verification, set `anime: "aniwatch"` in `dist/config.js` and redeploy.
+The deployment-owned `ANIWATCH_DOMAIN` defaults to `hianimez.to`, the domain advertised in the package documentation. The package's built-in `aniwatchtv.to` returned 404 in testing; the documented domain also failed from the local machine. This adapter remains available for compatibility, but is not the frontend default.
 
 This API does not proxy media or add any custom decryption, geographic-block, or access-control bypass. Third-party source availability and browser-compatible playback are separate from a healthy API process.
 
@@ -60,10 +73,10 @@ The curated collection is a limited editorial selection, not live rankings. Coll
 
 ## Availability
 
-The former `api.consumet.org` endpoint returned HTTP 451 during this build. The npm library installs successfully, but individual providers may be unavailable or change their behavior. The site never reports a title as playable until its connected provider supplies entries and sources. Provider URLs requiring browser-incompatible headers or blocked by CORS may not play. No media proxy or DRM bypass is included.
+The former `api.consumet.org` endpoint returned HTTP 451 during this build. Individual providers may be unavailable or change their behavior. Episode guides do not guarantee playable videos. Provider URLs requiring browser-incompatible headers or blocked by CORS may not play. No media proxy or DRM bypass is included.
 
 Software access and content distribution rights are separate. Confirm rights and provider terms before monetizing content.
 
 ## Verification
 
-Run `npm run check` for JavaScript syntax validation and `npm test` for the Aniwatch adapter's offline contract/validation tests. Fixture tests do not establish live playback. See `VERIFICATION.md` for live checks.
+Run `npm run check` for JavaScript syntax validation and `npm test` for the Aniwatch and MegaPlay adapters' offline contract/validation tests. Fixture tests do not establish live playback. See `VERIFICATION.md` for live checks.

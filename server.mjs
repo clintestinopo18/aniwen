@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { ANIME, MANGA } from "@consumet/extensions";
 import { createAniwatchProvider, aniwatchRoute } from "./providers/aniwatch.mjs";
+import { createMegaPlayProvider } from "./providers/megaplay.mjs";
 
 // Deployment-owned upstream, using the domain documented by aniwatch 2.27.9.
 // Load after setting this because the package reads its configuration on import.
@@ -26,6 +27,7 @@ allowed.add(`http://127.0.0.1:${port}`);
 allowed.add(`http://localhost:${port}`);
 const providers = {
   anime: {
+    megaplay: createMegaPlayProvider(),
     aniwatch,
     hianime: new ANIME.Hianime(),
     animekai: new ANIME.AnimeKai(),
@@ -163,7 +165,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/health")
         return json(res, 200, {
           service: "Yoru anime and manga API",
-          version: "1.1.0",
+          version: "1.2.0",
           library: "@consumet/extensions@1.8.8",
           aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
           note: "Server readiness only; external search and playback availability are not guaranteed.",
@@ -197,7 +199,7 @@ const server = http.createServer(async (req, res) => {
         if (!id || id.length > 700) fail("A valid episodeId is required.");
         operation = () => name === "aniwatch"
           ? provider.fetchEpisodeSources(id, url.searchParams.get("server") || "hd-1", url.searchParams.get("category") || "sub")
-          : provider.fetchEpisodeSources(id);
+          : name === "megaplay" ? provider.fetchEpisodeSources(id, url.searchParams.get("category") || "sub") : provider.fetchEpisodeSources(id);
       } else if (action === "read" && kind === "manga") {
         const id = url.searchParams.get("chapterId");
         if (!id || id.length > 700) fail("A valid chapterId is required.");

@@ -2,7 +2,7 @@
 // Local development uses /api; the published Site uses this hosted adapter.
 export const API_CONFIG = Object.freeze({
   base: "https://aniwen-consumet.onrender.com/api",
-  anime: "hianime",
+  anime: "megaplay",
   manga: "mangadex",
   manhwa: "mangadex",
 });

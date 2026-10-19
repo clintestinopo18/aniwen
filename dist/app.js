@@ -1,5 +1,6 @@
 import { loadCatalog, normalize, safeUrl } from "./catalog.js";
 import { API_CONFIG } from "./config.js";
+import { embedUrl, playerEvent } from "./megaplay.js";
 const $ = (s) => document.querySelector(s);
 const icons = {
   play: '<path d="m9 5 11 7-11 7z"/>',
@@ -66,6 +67,7 @@ let library = read("library", {}),
 let routeVersion = 0,
   routeAbort = null,
   hls = null,
+  disposeEmbed = null,
   observer = null,
   toastTimer,
   libraryFilter = "all",
@@ -258,7 +260,7 @@ async function details(item) {
   const id = item.key;
   if (detailCache.has(id)) return detailCache.get(id);
   const data = await api(
-    `${groupFor(item.kind)}/${item.provider}/info?id=${encodeURIComponent(item.id)}`,
+    `${groupFor(item.kind)}/${item.editorial && item.kind === "anime" ? "megaplay" : item.provider}/info?id=${encodeURIComponent(item.editorial && item.kind === "anime" ? item.sourceId : item.id)}`,
     item.base,
   );
   if (Array.isArray(data.chapters))
@@ -471,11 +473,16 @@ async function titlePage(key, version) {
   if (!item) return missing();
   const saved = !!library[key];
   main.innerHTML = `<div class="content" style="padding-bottom:15px"><a class="breadcrumb" href="#${item.kind}">${icon("back")}Back to ${pretty(item.kind)}</a></div><section class="detail-hero"><img class="detail-cover" src="${esc(safeUrl(item.image))}" alt="${esc(item.title)} cover"><div class="detail-copy"><div class="eyebrow">${pretty(item.kind)} · ${item.editorial ? "The Yoru collection" : esc(item.provider)}</div><h1>${esc(item.title)}</h1><div class="meta"><span>${esc(item.year)}</span><span class="dot"></span><span>${esc(totalLabel(item))}</span><span class="dot"></span><span>${esc(item.status)}</span></div><p>${esc(item.description || "Explore this edition and its available episodes or chapters below.")}</p><div class="actions"><button class="button" data-find="${esc(key)}">${icon(item.kind === "anime" ? "play" : "book")}${item.kind === "anime" ? "Find episodes" : "Find chapters"}</button><button class="button secondary" data-save="${esc(key)}" aria-pressed="${saved}">${icon(saved ? "check" : "plus")}${saved ? "In my library" : "My list"}</button></div></div></section><div class="content detail-layout"><section class="section"><div class="section-head"><h2>${item.editorial ? "Available editions" : item.kind === "anime" ? "Episodes" : "Chapters"}</h2><span class="tiny-label">${esc(item.provider || providerFor(item.kind))}</span></div><div id="units-panel">${item.editorial ? (prefs.base ? empty("Ready for your next chapter?", `Find this title on ${esc(providerFor(item.kind))} to see available ${item.kind === "anime" ? "episodes" : "chapters"}.`, `<button class="button secondary" data-find="${esc(key)}">Find ${item.kind === "anime" ? "episodes" : "chapters"} ${icon("arrow")}</button>`) : connectionNotice()) : loading("Loading available entries…")}</div></section><aside class="side-panel"><h3>Story details</h3><dl><div><dt>Format</dt><dd>${pretty(item.kind)}</dd></div><div><dt>Released</dt><dd>${esc(item.year || "Not listed")}</dd></div><div><dt>Genres</dt><dd>${esc(item.genres?.join(" · ") || "Not listed")}</dd></div><div><dt>Status</dt><dd>${esc(item.status || "Unknown")}</dd></div></dl></aside></div>`;
-  if (!item.editorial) {
+  if (item.editorial && item.kind === "anime") {
+    $("[data-find]").innerHTML = icon("play") + "Watch now";
+    $("#units-panel").innerHTML = loading("Loading episode guide…");
+    $("#units-panel").previousElementSibling.querySelector("h2").textContent = "Episodes";
+  }
+  if (!item.editorial || item.kind === "anime") {
     try {
       const data = await details(item);
       if (version !== routeVersion) return;
-      $("#units-panel").innerHTML = unitList(item, data);
+      $("#units-panel").innerHTML = (data.playbackNotice ? `<p class="embed-notice">${esc(data.playbackNotice)}</p>` : "") + unitList(item, data);
     } catch (e) {
       if (version === routeVersion)
         $("#units-panel").innerHTML = errorPanel(e, key);
@@ -490,6 +497,10 @@ async function findEdition(key) {
     panel = $("#units-panel"),
     version = routeVersion;
   if (!item || !panel) return;
+  if (item.editorial && item.kind === "anime") {
+    location.hash = `watch/${encodeURIComponent(key)}`;
+    return;
+  }
   if (!prefs.base && item.editorial) {
     panel.innerHTML = connectionNotice();
     panel.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -517,7 +528,7 @@ function missing() {
 }
 async function watchPage(key, params, version) {
   const item = all.get(key);
-  if (!item || item.editorial) return missing();
+  if (!item || item.kind !== "anime") return missing();
   const unitId = params.get("unit");
   main.innerHTML = `<div class="content"><a class="breadcrumb" href="${link(item)}">${icon("back")}Back to ${esc(item.title)}</a><h1 class="watch-title">${esc(item.title)}</h1><div class="player" id="player">${loading("Finding video sources…")}</div><div id="video-message"></div><div id="player-controls"></div><section class="section"><div class="section-head"><h2>Episodes</h2></div><div id="watch-episodes">${loading()}</div></section></div>`;
   try {
@@ -527,6 +538,10 @@ async function watchPage(key, params, version) {
       data.episodes?.find((u) => String(u.id) === unitId) || data.episodes?.[0];
     if (!unit) throw new Error("This edition has no episodes available.");
     $("#watch-episodes").innerHTML = unitList(item, data, String(unit.id));
+    if (item.editorial || item.provider === "megaplay") {
+      showEmbedPlayer(item, data, unit, params, version);
+      return;
+    }
     const sources = await api(
       `anime/${item.provider}/watch?episodeId=${encodeURIComponent(unit.id)}`,
       item.base,
@@ -637,6 +652,52 @@ async function watchPage(key, params, version) {
       $("#watch-episodes").innerHTML = "";
     }
   }
+}
+function showEmbedPlayer(item, data, unit, params, version) {
+  const key = item.key;
+  const index = data.episodes.findIndex((e) => String(e.id) === String(unit.id));
+  const previous = data.episodes[index - 1], next = data.episodes[index + 1];
+  let language = params.get("audio") === "dub" ? "dub" : "sub";
+  const route = (u) => `#watch/${encodeURIComponent(key)}?unit=${encodeURIComponent(u.id)}&audio=${language}`;
+  $("#player-controls").innerHTML = `<div class="player-controls"><div class="meta"><span>Episode ${esc(unit.number)} · MegaPlay</span><label>Audio <select id="embed-audio"><option value="sub">Japanese · Sub</option><option value="dub">English · Dub</option></select></label><button class="button secondary small" id="reload-embed">Reload player</button></div><div class="actions">${previous ? `<a class="button secondary small" id="embed-prev">← Previous</a>` : ""}${next ? `<a class="button secondary small" id="embed-next">Next episode →</a>` : ""}</div></div><p class="tiny-label">Video is supplied by MegaPlay. Availability and subtitles vary; the embedded player may display third-party ads. Your place is saved when the player reports progress. Automatic seeking to a saved time is not supported.</p>`;
+  $("#player-controls .tiny-label").className = "embed-notice";
+  $("#player-controls").insertAdjacentHTML("beforeend", sourceCredits(data));
+  $("#embed-audio").value = language;
+  let frame, lastSave = 0;
+  const setEmbed = () => {
+    $("#video-message").textContent = "";
+    const url = embedUrl(data.id, unit.number, language);
+    frame = document.createElement("iframe");
+    frame.title = `${item.title} — Episode ${unit.number} (${language})`;
+    frame.src = url;
+    frame.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
+    // MegaPlay requires a standard cross-origin iframe and rejects sandboxed embeds.
+    $("#player").replaceChildren(frame);
+    if (previous) $("#embed-prev").href = route(previous);
+    if (next) $("#embed-next").href = route(next);
+    document.querySelectorAll("#watch-episodes .episode").forEach((a) => { a.href = a.getAttribute("href").split("&audio=")[0] + `&audio=${language}`; });
+  };
+  const onMessage = (event) => {
+    if (routeVersion !== version) return;
+    const message = playerEvent(event, frame?.contentWindow);
+    if (!message) return;
+    if (message.type === "progress" && Date.now() - lastSave > 5000) {
+      lastSave = Date.now();
+      progress(item, unit, { time: message.time, duration: message.duration, audio: language });
+    } else if (message.type === "complete") {
+      markDone(item, unit);
+      if (prefs.autoplay && next) location.hash = route(next);
+    } else if (message.type === "error") {
+      $("#video-message").textContent = "MegaPlay could not play this episode. Try the other audio option or reload the player.";
+    }
+  };
+  window.addEventListener("message", onMessage);
+  disposeEmbed = () => { window.removeEventListener("message", onMessage); frame?.remove(); };
+  $("#embed-audio").onchange = (e) => { language = e.target.value; history.replaceState(null, "", route(unit)); setEmbed(); };
+  $("#reload-embed").onclick = setEmbed;
+  setEmbed();
 }
 async function readerPage(key, params, version) {
   const item = all.get(key);
@@ -765,8 +826,8 @@ function updateProfileAvatar() {
   if (avatar) avatar.textContent = Array.from(profile.name.trim() || "Y")[0].toUpperCase();
 }
 function resumeLink(entry) {
-  if (entry.progress?.id && !entry.item.editorial) {
-    return `#${entry.item.kind === "anime" ? "watch" : "read"}/${encodeURIComponent(entry.item.key)}?unit=${encodeURIComponent(entry.progress.id)}`;
+  if (entry.progress?.id && (!entry.item.editorial || entry.item.kind === "anime")) {
+    return `#${entry.item.kind === "anime" ? "watch" : "read"}/${encodeURIComponent(entry.item.key)}?unit=${encodeURIComponent(entry.progress.id)}${entry.item.kind === "anime" ? `&audio=${entry.progress.audio === "dub" ? "dub" : "sub"}` : ""}`;
   }
   return link(entry.item);
 }
@@ -874,6 +935,8 @@ async function render() {
   routeVersion++;
   const version = routeVersion;
   routeAbort?.abort();
+  disposeEmbed?.();
+  disposeEmbed = null;
   routeAbort = new AbortController();
   const oldVideo = $("#video");
   if (oldVideo) oldVideo.pause();
