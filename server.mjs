@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { ANIME, MANGA } from "@consumet/extensions";
 import { createAniwatchProvider, aniwatchRoute } from "./providers/aniwatch.mjs";
 import { createMegaPlayProvider } from "./providers/megaplay.mjs";
+import { createChapterProvider } from "./providers/chapters.mjs";
 
 // Deployment-owned upstream, using the domain documented by aniwatch 2.27.9.
 // Load after setting this because the package reads its configuration on import.
@@ -38,7 +39,7 @@ const providers = {
     mangapill: new MANGA.MangaPill(),
     comick: new MANGA.ComicK(),
     mangareader: new MANGA.MangaReader(),
-    weebcentral: new MANGA.WeebCentral(),
+    weebcentral: createChapterProvider(new MANGA.WeebCentral()),
   },
 };
 // Preserve country, English descriptions, and chapter credit from provider responses.
@@ -165,7 +166,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/health")
         return json(res, 200, {
           service: "Yoru anime and manga API",
-          version: "1.2.0",
+          version: "1.3.0",
           library: "@consumet/extensions@1.8.8",
           aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
           note: "Server readiness only; external search and playback availability are not guaranteed.",
@@ -187,7 +188,9 @@ const server = http.createServer(async (req, res) => {
       if (!provider || parts.length !== 4)
         fail("Unknown provider or route.", 404);
       let operation;
-      if (action === "info") {
+      if (action === "catalog" && provider.browse) {
+        operation = () => provider.browse(Object.fromEntries(url.searchParams));
+      } else if (action === "info") {
         const id = url.searchParams.get("id");
         if (!id || id.length > 700) fail("A valid title id is required.");
         operation = () =>
@@ -209,9 +212,9 @@ const server = http.createServer(async (req, res) => {
           fail("Search must contain between 1 and 150 characters.");
         const page = Math.max(
           1,
-          Math.min(20, Number(url.searchParams.get("page")) || 1),
+          Math.min(10000, Number(url.searchParams.get("page")) || 1),
         );
-        operation = () => provider.search(action, page);
+        operation = () => provider.search(action, page, { kind: url.searchParams.get("kind") || "manga" });
       }
       let data = await getData(url.pathname + url.search, operation);
       if (name === "mangadex") {

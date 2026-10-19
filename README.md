@@ -32,7 +32,7 @@ The local adapter also exposes `GET /api/health`. Health confirms the server is 
 
 ## MegaPlay anime playback (default)
 
-AniZen's active HD-1 iframe was observed using MegaPlay. Aniwen now uses the same provider's [documented iframe API](https://megaplay.buzz/api), with AniList metadata fetched by the Node server. No AniZen code or private endpoint is copied. The frontend default is `anime: "megaplay"`; manga/manhwa providers are unchanged.
+AniZen's active HD-1 iframe was observed using MegaPlay. Aniwen now uses the same provider's [documented iframe API](https://megaplay.buzz/api), with AniList metadata fetched by the Node server. No AniZen code or private endpoint is copied. The frontend default is `anime: "megaplay"`; manga/manhwa use WeebCentral as described below.
 
 - `/api/anime/megaplay/Frieren` searches AniList.
 - `/api/anime/megaplay/info?id=154587` returns metadata and an aired-episode guide.
@@ -42,6 +42,16 @@ AniZen's active HD-1 iframe was observed using MegaPlay. Aniwen now uses the sam
 The player is cross-origin and requires an ordinary, unsandboxed iframe; MegaPlay refuses sandboxed embeds. It may show third-party ads or pop-ups. No local library or profile data is sent to it. Progress messages are accepted only from the current iframe window and exact MegaPlay origin. Progress and episode completion are saved locally when reported, but the provider has no documented seek command for restoring a saved timestamp. Episode lists are metadata, not proof of playable streams: ID mappings, regional availability, and sub/dub coverage may vary. This integration does not establish distribution or monetization rights.
 
 Render auto-deploy is disabled on the existing service: after pushing the GitHub `main` branch, trigger a manual deployment and verify it is live before publishing the frontend. No extra paid service is required.
+
+## Live anime catalog and readable chapters
+
+The Anime page now queries AniList in pages of 24, with popular/trending/title/year sorting, genre filtering, and title search. `GET /api/anime/megaplay/catalog?page=2&sort=popular&genre=all` exposes this catalog. It is no longer limited to the starter collection. Adult-tagged AniList entries are excluded. This is access to the available metadata catalog, not a promise that every anime has a MegaPlay mapping or playable video.
+
+Manga and manhwa use the installed Consumet WeebCentral provider, with a validation/normalization adapter in `providers/chapters.mjs`. Their landing pages remain curated, and title search goes beyond the starter collection with pagination. Opening a curated comic automatically looks up matching editions; visitors choose the edition to see chapters. New provider title links can load directly without depending on a previous browser search.
+
+Mangakakalot's public search returned a Cloudflare challenge (HTTP 403), so it was not enabled and no challenge bypass was added. A custom WeebCentral bulk-catalog request also failed; chapter search/info/reading use the existing provider's working methods instead. Formats in provider search may be mixed: the Manga/Manhwa search category is browsing context, not verified origin metadata when the provider omits it.
+
+Chapter IDs are validated, duplicates removed, and chapter numbers sorted numerically, including chapter 0 and decimals. Pages load directly from the image host with no image proxy. Failed images show a readable error; upstream failures do not become fake empty chapter lists. Existing MangaDex, MangaPill, and other routes remain available for compatibility.
 
 ## Self-hosted Aniwatch API (legacy)
 

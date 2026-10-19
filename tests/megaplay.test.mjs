@@ -54,3 +54,17 @@ test("reports catalog failures clearly", async () => {
   await assert.rejects(createMegaPlayProvider(async () => ({ status: 429 })).search("test"), { status: 429 });
   await assert.rejects(createMegaPlayProvider(async () => ({ ok: true, json: async () => ({ data: { Media: null } }) })).fetchAnimeInfo(1), { status: 404 });
 });
+test("browses beyond the starter collection with bounded filters and pagination", async () => {
+  let request;
+  const p = createMegaPlayProvider(async (_, options) => {
+    request = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ data: { Page: { media: [{ id: 1, title: { english: "Test" }, episodes: 12, status: "FINISHED" }], pageInfo: { currentPage: 31, hasNextPage: true } } } }) };
+  });
+  const data = await p.browse({ page: 31, sort: "trending", genre: "Fantasy", search: "Test" });
+  assert.equal(data.currentPage, 31);
+  assert.equal(data.hasNextPage, true);
+  assert.deepEqual(request.variables, { page: 31, sort: ["TRENDING_DESC"], genre: "Fantasy", search: "Test" });
+  assert.match(request.query, /isAdult:false/);
+  await assert.rejects(p.browse({ sort: "unsafe" }), { status: 400 });
+  await assert.rejects(p.browse({ page: -1 }), { status: 400 });
+});

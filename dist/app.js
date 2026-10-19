@@ -241,20 +241,34 @@ function providerFor(kind) {
 function groupFor(kind) {
   return kind === "anime" ? "anime" : "manga";
 }
-async function searchProvider(query, kind) {
+async function providerPage(query, kind, page = 1) {
   const provider = providerFor(kind),
     base = prefs.base;
   const result = await api(
-    `${groupFor(kind)}/${encodeURIComponent(provider)}/${encodeURIComponent(query)}`,
+    `${groupFor(kind)}/${encodeURIComponent(provider)}/${encodeURIComponent(query)}?page=${page}&kind=${kind}`,
     base,
   );
-  return (result.results || [])
+  const items = (result.results || [])
     .filter((r) => r.id)
     .map((r) => {
       const x = normalize(r, kind, provider, base);
       remember(x);
       return x;
     }).filter((x) => x.kind === kind);
+  return { items, hasNextPage: result.hasNextPage === true, currentPage: page };
+}
+async function searchProvider(query, kind) {
+  return (await providerPage(query, kind)).items;
+}
+async function resolveTitle(key) {
+  if (all.has(key)) return;
+  const match = /^title-(anime|manga|manhwa)-(megaplay|weebcentral)-(.+)$/.exec(key);
+  if (!match || (match[1] === "anime") !== (match[2] === "megaplay")) return;
+  const [, kind, provider, encodedId] = match;
+  const data = await api(`${groupFor(kind)}/${provider}/info?id=${encodeURIComponent(decodeURIComponent(encodedId))}`);
+  const item = normalize(data, kind, provider, prefs.base);
+  remember(item);
+  detailCache.set(item.key, data);
 }
 async function details(item) {
   const id = item.key;
@@ -311,7 +325,7 @@ function home() {
       "",
     )}</div><span class="tiny-label">Your next obsession starts here.</span></div>${recents.length ? section("Pick up where you left off", "Your stories, right where you left them.", recents, "#library") : ""}${section("Find your next obsession", "A few favorites to get you started.", picks, homeType === "all" ? "#anime" : "#" + homeType, "home-six")}<section class="section discovery-grid"><a class="editorial-banner" href="#manhwa"><div class="editorial-text"><div class="eyebrow">A different kind of adventure</div><h2>One more chapter.<br>Just one more.</h2><p>Discover worlds made for the scroll.<br>Your next manhwa rabbit hole awaits.</p><span class="text-link">Explore manhwa ${icon("arrow")}</span></div><div class="poster-stack" aria-hidden="true"><img src="assets/omniscient-reader.jpg" alt=""><img src="assets/solo-leveling-manhwa.jpg" alt=""></div></a><div class="library-promo">${icon("bookmark")}<h3>Your stories. Your space.</h3><p>Keep your favorites together and pick up where you left off.</p><a href="#library" class="text-link">Make yourself at home ${icon("arrow")}</a></div></section>${section("From panel to obsession", "Big worlds. Unforgettable characters. Your next great read.", catalog.filter((i) => i.kind === "manga").slice(0, 6), "#manga", "home-six")}<section class="section"><div class="section-head"><div><h2>Follow your mood</h2><p class="subhead">There’s a story for every kind of day.</p></div></div><div class="genre-row">${["Action", "Fantasy", "Adventure", "Comedy", "Drama", "Supernatural"].map((g) => `<a href="#anime?genre=${g}" class="genre-tile">${g}<span>↗</span></a>`).join("")}</div></section></div>`;
 }
-function browse(kind, params) {
+function browseCurated(kind, params) {
   const genre = params.get("genre") || "all",
     sort = params.get("sort") || "curated";
   let list = catalog.filter(
@@ -346,6 +360,32 @@ function browse(kind, params) {
       location.hash = `${kind}?genre=${encodeURIComponent($("#genre-filter").value)}&sort=${$("#sort-filter").value}`;
     }),
   );
+}
+async function browse(kind, params, version) {
+  if (kind !== "anime" || params.get("sort") === "curated") return browseCurated(kind, params);
+  const anime = kind === "anime", provider = providerFor(kind);
+  const page = Math.max(1, Math.min(10000, Math.floor(Number(params.get("page")) || 1)));
+  const sortOptions = anime ? [["popular", "Most popular"], ["trending", "Trending now"], ["title", "Title A–Z"], ["year", "Newest releases"]] : [["popular", "Most popular"], ["updated", "Recently updated"], ["title", "Title A–Z"]];
+  const sort = sortOptions.some(([v]) => v === params.get("sort")) ? params.get("sort") : "popular";
+  const genres = ["all", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
+  const genre = genres.includes(params.get("genre")) ? params.get("genre") : "all";
+  const query = (params.get("q") || "").slice(0, 150);
+  const route = (p) => `#${kind}?${new URLSearchParams({ page: String(p), sort, genre, q: query })}`;
+  main.innerHTML = `<div class="content"><div class="page-head"><div class="eyebrow">Beyond the collection</div><h1>${pretty(kind)}, your way.</h1><p>${anime ? "Explore the live anime catalog—not just our starter picks. Stream availability varies by title and episode." : "Explore the live chapter catalog. Choose a series to see its available chapters."}</p></div><form class="catalog-search" id="catalog-search"><input id="catalog-query" type="search" aria-label="Search this catalog" maxlength="150" placeholder="Search ${pretty(kind).toLowerCase()} titles…" value="${esc(query)}"><button class="button">Search</button></form><div class="filter-bar">${anime ? `<label>Genre <select id="catalog-genre">${genres.map(g => `<option value="${g}" ${genre === g ? "selected" : ""}>${g === "all" ? "All genres" : g}</option>`).join("")}</select></label>` : ""}<label>Sort <select id="catalog-sort">${sortOptions.map(([v,l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>${l}</option>`).join("")}</select></label><span class="result-count">Page ${page} · ${anime ? "AniList / MegaPlay" : "WeebCentral"}</span><a href="#${kind}?sort=curated" class="text-link">Yoru picks</a></div><div id="catalog-results">${loading("Loading the live catalog…")}</div><nav class="catalog-pagination" aria-label="Catalog pages" id="catalog-pagination"></nav></div>`;
+  const filter = () => { location.hash = `${kind}?${new URLSearchParams({ sort: $("#catalog-sort").value, genre: $("#catalog-genre")?.value || "all", q: $("#catalog-query").value.trim() })}`; };
+  $("#catalog-search").onsubmit = e => { e.preventDefault(); filter(); };
+  $("#catalog-sort").onchange = filter;
+  if (anime) $("#catalog-genre").onchange = filter;
+  try {
+    const data = await api(`${groupFor(kind)}/${provider}/catalog?${new URLSearchParams({ page: String(page), sort, kind, ...(anime ? {genre} : {}), search: query })}`);
+    if (version !== routeVersion) return;
+    const items = (data.results || []).filter(r => r.id).map(r => { const item = normalize(r, kind, provider, prefs.base); remember(item); return item; });
+    $("#catalog-results").innerHTML = items.length ? `<div class="collection-grid">${items.map(i => card(i)).join("")}</div>` : empty("No titles found", "Try another search or filter.");
+    $("#catalog-pagination").innerHTML = `${page > 1 ? `<a class="button secondary" href="${esc(route(page - 1))}">← Previous page</a>` : ""}<span>Page ${page}</span>${data.hasNextPage && page < 10000 ? `<a class="button secondary" href="${esc(route(page + 1))}">Next page →</a>` : ""}`;
+  } catch (e) {
+    if (version === routeVersion) $("#catalog-results").innerHTML = `<div class="notice error">${esc(networkError(e))}</div><button class="button secondary" id="retry-catalog">Retry catalog</button>`;
+    if (version === routeVersion) $("#retry-catalog").onclick = () => render();
+  }
 }
 function libraryPage(params) {
   libraryFilter = params.get("type") || "all";
@@ -387,6 +427,7 @@ function libraryPage(params) {
 }
 async function searchPage(params, version) {
   const q = params.get("q") || "";
+  const page = Math.max(1, Math.min(10000, Math.floor(Number(params.get("page")) || 1)));
   searchType = params.get("type") || "all";
   const local = catalog.filter(
     (i) =>
@@ -418,7 +459,7 @@ async function searchPage(params, version) {
     const kinds =
       searchType === "all" ? ["anime", "manga", "manhwa"] : [searchType];
     const results = await Promise.allSettled(
-      kinds.map((k) => searchProvider(q, k)),
+      kinds.map((k) => providerPage(q, k, page)),
     );
     if (version !== routeVersion) return;
     let html = "";
@@ -426,13 +467,17 @@ async function searchPage(params, version) {
       html += `<p class="source-label" style="margin-top:25px">${pretty(kinds[i])} · ${esc(providerFor(kinds[i]))}</p>`;
       html +=
         r.status === "fulfilled"
-          ? r.value.length
-            ? `<div class="collection-grid">${r.value.map((i) => card(i)).join("")}</div>`
+          ? r.value.items.length
+            ? `<div class="collection-grid">${r.value.items.map((i) => card(i)).join("")}</div>`
             : empty(
                 "No results from this provider",
                 "Try a shorter title or search again later.",
               )
           : `<div class="notice error">${esc(networkError(r.reason))}</div>`;
+      if (r.status === "fulfilled") {
+        const route = p => `#search?${new URLSearchParams({ q, type: kinds[i], page: String(p) })}`;
+        html += `<nav class="catalog-pagination" aria-label="${pretty(kinds[i])} search pages">${page > 1 ? `<a class="button secondary" href="${esc(route(page - 1))}">← Previous page</a>` : ""}<span>Page ${page}</span>${r.value.hasNextPage && page < 10000 ? `<a class="button secondary" href="${esc(route(page + 1))}">More ${pretty(kinds[i])} →</a>` : ""}</nav>`;
+      }
     });
     $("#remote-results").innerHTML = html;
   } catch (e) {
@@ -487,6 +532,8 @@ async function titlePage(key, version) {
       if (version === routeVersion)
         $("#units-panel").innerHTML = errorPanel(e, key);
     }
+  } else {
+    await findEdition(key);
   }
 }
 function errorPanel(error, key) {
@@ -736,6 +783,14 @@ async function readerPage(key, params, version) {
     // Resume in single-page mode to avoid lazy image layout shifting the saved position.
     readerMode = readerIndex > 0 ? "paged" : "scroll";
     $("#reader-body").insertAdjacentHTML("afterbegin", sourceCredits(data, unit));
+    $("#reader-body").insertAdjacentHTML("afterbegin", '<p class="notice error" id="reader-image-error" role="status" hidden></p>');
+    $("#reader-pages").querySelectorAll("img").forEach(img => {
+      img.onerror = () => {
+        if (version !== routeVersion) return;
+        $("#reader-image-error").hidden = false;
+        $("#reader-image-error").textContent = "Some pages could not load from the image host. Try reloading the chapter, or use the source link below.";
+      };
+    });
     const update = () => {
       $("#reader-progress").textContent =
         `Page ${readerIndex + 1} of ${readerPages.length}`;
@@ -968,8 +1023,13 @@ async function render() {
       ? "Yoru — Find your next obsession"
       : `${all.get(key)?.title || { anime: "Anime", manga: "Manga", manhwa: "Manhwa", library: "My library", search: "Search", profile: "My profile", settings: "My profile", about: "About" }[page] || "Yoru"} · Yoru`;
   try {
+    if (["title", "watch", "read"].includes(page) && !all.has(key)) {
+      main.innerHTML = `<div class="content">${loading("Loading story…")}</div>`;
+      await resolveTitle(key);
+      if (version !== routeVersion) return;
+    }
     if (page === "home") home();
-    else if (["anime", "manga", "manhwa"].includes(page)) browse(page, params);
+    else if (["anime", "manga", "manhwa"].includes(page)) await browse(page, params, version);
     else if (page === "library") libraryPage(params);
     else if (page === "search") await searchPage(params, version);
     else if (page === "title") await titlePage(key, version);

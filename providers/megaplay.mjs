@@ -25,8 +25,14 @@ export function createMegaPlayProvider(fetcher = fetch) {
   return {
     async search(search, page = 1) {
       if (typeof search !== "string" || !search.trim() || search.length > 150) throw Object.assign(new Error("Enter a title up to 150 characters."), { status: 400 });
-      const p = positiveId(page, 20);
+      const p = positiveId(page, 10000);
       const data = await query(`query ($search:String!,$page:Int!) { Page(page:$page,perPage:20) { pageInfo { hasNextPage currentPage } media(search:$search,type:ANIME,isAdult:false,sort:SEARCH_MATCH) { ${fields} } } }`, { search: search.trim(), page: p });
+      return { results: data.Page.media.map(normalize), ...data.Page.pageInfo };
+    },
+    async browse({ page = 1, sort = "popular", genre = "all", search = "" } = {}) {
+      const sorts = { popular: "POPULARITY_DESC", trending: "TRENDING_DESC", title: "TITLE_ROMAJI", year: "START_DATE_DESC" };
+      if (!sorts[sort] || typeof genre !== "string" || genre.length > 40 || typeof search !== "string" || search.length > 150) throw Object.assign(new Error("Invalid catalog filter."), { status: 400 });
+      const data = await query(`query ($page:Int!,$sort:[MediaSort],$genre:String,$search:String) { Page(page:$page,perPage:24) { pageInfo { hasNextPage currentPage } media(type:ANIME,isAdult:false,sort:$sort,genre:$genre,search:$search) { ${fields} } } }`, { page: positiveId(page, 10000), sort: [sorts[sort]], genre: genre === "all" ? null : genre, search: search.trim() || null });
       return { results: data.Page.media.map(normalize), ...data.Page.pageInfo };
     },
     async fetchAnimeInfo(id) {

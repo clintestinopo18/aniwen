@@ -1,5 +1,15 @@
 # Build verification — 2026-10-18
 
+## Expanded anime catalog and chapter provider — 2026-10-19
+
+- Anime catalog returned 24 entries on each of pages 1 and 2 with different titles and a next-page flag. Browser navigation to page 2 succeeded. Search, genre and sorting are server-side AniList filters; no bulk catalog download is performed.
+- Mangakakalot search returned HTTP 403 with a Cloudflare challenge. It is not enabled. A custom WeebCentral catalog query also returned 403 and was removed; the installed provider's ordinary search/info/read methods succeeded.
+- WeebCentral Solo Leveling search returned 3 editions. Info returned 201 chapters in normalized ascending order (chapter 0 through 200). Browser chapter 1 loaded 22 page images, with the first images reporting real natural dimensions (720px wide).
+- Single-page mode advanced to Page 2 of 22 and retained that position after reload. An uncached provider title link resolved directly to metadata and chapters.
+- WeebCentral One Piece returned 1,196 chapters with Chapter 1 first. Browser Chapter 1 returned 57 pages; the first two images loaded at 1066×1600 and the cover rendered visibly.
+- 15 offline tests pass, including catalog filter/pagination validation, chapter ID validation, chapter-zero ordering/deduplication, readable-page normalization and safe upstream error handling.
+- The Anime page covers the provider's metadata catalog, not guaranteed streaming coverage. Manga/manhwa landing pages remain curated with broader provider search. Manga/manhwa format metadata is not supplied by all search results; category context is not authoritative country classification.
+
 ## MegaPlay provider — 2026-10-19
 
 - Observed AniZen's One Piece HD-1 iframe using `megaplay.buzz/stream/s-2/2142/sub`. Integrated MegaPlay's documented AniList-ID embeds independently, not AniZen's internal endpoints or application code.
