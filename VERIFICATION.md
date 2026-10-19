@@ -8,7 +8,8 @@
 - Local HTTP: health 200; missing search, malformed title, and unsupported playback server 400; unknown Aniwatch route 404.
 - Live Frieren search returned 502 from the documented upstream domain. The package's built-in default domain also failed when tested independently. No working episode video has been verified.
 - Frontend provider selection is unchanged until search and playback can be verified. Server readiness alone is not proof of streaming availability.
-- Hosted release pending: Render remains on its initial deployment despite repository updates; dashboard sign-in is needed to inspect its deployment configuration.
+- Hosted release verified: Render deployed commit `015b1d6` after switching the stale automatic trigger to manual deployment. The existing free instance was reused.
+- Hosted health returned 200 with Aniwatch registered and the correct Sites CORS origin. Hosted Frieren search also returned upstream 502; MangaDex Solo Leveling search returned 200 with seven results. Playback remains unverified/unavailable through the tested Aniwatch search flow.
 
 ## Profile and hosted API update — 2026-10-19 (Asia/Manila)
 
