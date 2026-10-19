@@ -1,5 +1,15 @@
 # Build verification — 2026-10-18
 
+## Self-hosted Aniwatch adapter — 2026-10-19
+
+- Added the official npm `aniwatch@2.27.9` package and an independent adapter for the reference project's `/api/v2/hianime` routes. Existing Consumet and MangaDex routes remain available.
+- Five offline adapter tests pass: metadata normalization, video/caption normalization, input validation, upstream error handling, and versioned routing. These use fixtures, not live media.
+- `npm run check`, `git diff --check`, and production dependency audit passed (zero reported vulnerabilities).
+- Local HTTP: health 200; missing search, malformed title, and unsupported playback server 400; unknown Aniwatch route 404.
+- Live Frieren search returned 502 from the documented upstream domain. The package's built-in default domain also failed when tested independently. No working episode video has been verified.
+- Frontend provider selection is unchanged until search and playback can be verified. Server readiness alone is not proof of streaming availability.
+- Hosted release pending: Render remains on its initial deployment despite repository updates; dashboard sign-in is needed to inspect its deployment configuration.
+
 ## Profile and hosted API update — 2026-10-19 (Asia/Manila)
 
 - Profile icon opens the dashboard; name and bio survive a browser reload.

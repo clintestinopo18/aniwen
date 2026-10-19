@@ -1,6 +1,6 @@
 # Yoru
 
-A responsive anime, manga, and manhwa website with a curated starter collection and a Consumet connection. Built with HTML, CSS, and browser JavaScript. The included Node server serves the site and a small REST adapter around `@consumet/extensions`.
+A responsive anime, manga, and manhwa website with a curated starter collection and self-hosted provider connections. Built with HTML, CSS, and browser JavaScript. The included Node server serves the site, Consumet, and an Aniwatch-compatible API using the official `aniwatch` npm package.
 
 ## Run locally
 
@@ -30,6 +30,22 @@ API configuration belongs to the deployment: change `dist/config.js` and redeplo
 
 The local adapter also exposes `GET /api/health`. Health confirms the server is running, not that third-party providers work.
 
+## Self-hosted Aniwatch API
+
+The same Node process now runs `aniwatch@2.27.9`; no separate API URL, database, or paid server is required. This is an independently written adapter, not a copy of AniProject's application. It implements the subset of Aniwatch v2 used in that reference project:
+
+- `GET /api/v2/hianime/search?q=Frieren&page=1`
+- `GET /api/v2/hianime/anime/{animeId}`
+- `GET /api/v2/hianime/anime/{animeId}/episodes`
+- `GET /api/v2/hianime/episode/servers?animeEpisodeId=...`
+- `GET /api/v2/hianime/episode/sources?animeEpisodeId=...&server=hd-1&category=sub`
+
+Versioned success responses wrap the upstream result in `{ "success": true, "data": ... }`. Errors have a non-2xx status and `{ "success": false, "message": ... }`. The normalized `/api/anime/aniwatch/{query}`, `/info?id=...`, and `/watch?episodeId=...` routes also fit Yoru's existing player. Episode IDs containing `?ep=` must be URL-encoded when used as query values. Supported source options are `hd-1`/`hd-2` and `sub`/`dub`/`raw`.
+
+The deployment-owned `ANIWATCH_DOMAIN` defaults to `hianimez.to`, the domain advertised in the package documentation. The package's built-in `aniwatchtv.to` returned 404 in testing; the documented domain also failed from the local machine. This is not a guarantee that the upstream will serve episodes from your host. The frontend's existing default is retained until Aniwatch passes a real playback check; to select the adapter after verification, set `anime: "aniwatch"` in `dist/config.js` and redeploy.
+
+This API does not proxy media or add any custom decryption, geographic-block, or access-control bypass. Third-party source availability and browser-compatible playback are separate from a healthy API process.
+
 ## Features
 
 - Separate Anime, Manga, Manhwa pages; genre filters; release-year and title sorting.
@@ -50,4 +66,4 @@ Software access and content distribution rights are separate. Confirm rights and
 
 ## Verification
 
-Run `npm run check` for JavaScript syntax validation. See `VERIFICATION.md` for the checks performed on this build.
+Run `npm run check` for JavaScript syntax validation and `npm test` for the Aniwatch adapter's offline contract/validation tests. Fixture tests do not establish live playback. See `VERIFICATION.md` for live checks.

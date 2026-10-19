@@ -3,6 +3,13 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { ANIME, MANGA } from "@consumet/extensions";
+import { createAniwatchProvider, aniwatchRoute } from "./providers/aniwatch.mjs";
+
+// Deployment-owned upstream, using the domain documented by aniwatch 2.27.9.
+// Load after setting this because the package reads its configuration on import.
+process.env.ANIWATCH_DOMAIN ||= "hianimez.to";
+const { HiAnime } = await import("aniwatch");
+const aniwatch = createAniwatchProvider(new HiAnime.Scraper());
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "dist");
 const port = Number(process.env.PORT) || 4173;
@@ -19,6 +26,7 @@ allowed.add(`http://127.0.0.1:${port}`);
 allowed.add(`http://localhost:${port}`);
 const providers = {
   anime: {
+    aniwatch,
     hianime: new ANIME.Hianime(),
     animekai: new ANIME.AnimeKai(),
     animepahe: new ANIME.AnimePahe(),
@@ -154,13 +162,20 @@ const server = http.createServer(async (req, res) => {
         });
       if (url.pathname === "/api/health")
         return json(res, 200, {
-          service: "Yoru Consumet adapter",
-          version: "1.0.0",
+          service: "Yoru anime and manga API",
+          version: "1.1.0",
           library: "@consumet/extensions@1.8.8",
+          aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
+          note: "Server readiness only; external search and playback availability are not guaranteed.",
           providers: Object.fromEntries(
             Object.entries(providers).map(([k, v]) => [k, Object.keys(v)]),
           ),
         });
+      if (url.pathname.startsWith("/api/v2/hianime")) {
+        const operation = aniwatchRoute(url, aniwatch);
+        if (!operation) fail("Unknown Aniwatch route.", 404);
+        return json(res, 200, { success: true, data: await getData(url.pathname + url.search, operation) });
+      }
       const parts = url.pathname
         .split("/")
         .filter(Boolean)
@@ -180,7 +195,9 @@ const server = http.createServer(async (req, res) => {
       } else if (action === "watch" && kind === "anime") {
         const id = url.searchParams.get("episodeId");
         if (!id || id.length > 700) fail("A valid episodeId is required.");
-        operation = () => provider.fetchEpisodeSources(id);
+        operation = () => name === "aniwatch"
+          ? provider.fetchEpisodeSources(id, url.searchParams.get("server") || "hd-1", url.searchParams.get("category") || "sub")
+          : provider.fetchEpisodeSources(id);
       } else if (action === "read" && kind === "manga") {
         const id = url.searchParams.get("chapterId");
         if (!id || id.length > 700) fail("A valid chapterId is required.");
@@ -243,7 +260,7 @@ const server = http.createServer(async (req, res) => {
     console.error(
       `[${new Date().toISOString()}] ${req.url?.split("?")[0]}: ${error.message}`,
     );
-    json(res, status, { message });
+    json(res, status, { success: false, message });
   }
 });
 server.listen(port, host, () =>
