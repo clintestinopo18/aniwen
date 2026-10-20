@@ -1790,6 +1790,30 @@ dialog p {
     display: none;
   }
 }
+.reading-summary,
+.reading-options {
+  border: 1px solid #34303f;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 16px 0 24px;
+  background: #19171f;
+}
+.reading-summary p,
+.reading-options p,
+.reading-coverage {
+  color: #b6b0c4;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.reading-summary p:first-child { color: #eee8ff; margin-top: 0; }
+.reading-options h3 { margin: 0 0 8px; }
+.reading-status { font-size: 11px; line-height: 1.5; color: #aaa3b7; margin: 8px 0 0; }
+.reading-status.hosted { color: #a9d9bd; }
+.reading-status.none { color: #d1b6a0; }
+.reading-status.unknown { color: #e6c97d; }
+.reading-card { min-width: 0; }
+.reading-card[hidden], #retry-availability[hidden] { display: none; }
+.reading-coverage { border-left: 3px solid #b59aff; padding-left: 12px; }
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

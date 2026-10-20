@@ -1,5 +1,15 @@
 # Build verification — 2026-10-18
 
+## Reading availability and publisher options — 2026-10-21
+
+- 32 offline tests passed, including availability unknown/empty/partial states, two-request concurrency, navigation cancellation, publisher-domain validation, external-link deduplication and optional lookup failures. JavaScript syntax and diff checks passed.
+- Browser: first Manhwa page checked all 24 titles; 12 had hosted English chapter lists. The Reading filter displayed those 12 and hid the other 12, while All titles preserves the catalog. This is a page-scoped filter, not a complete-series or verified-image guarantee.
+- Browser: Omniscient Reader's Viewpoint showed its source-listed WEBTOON option and warned that the first hosted chapter is 255. Opening chapter 255 preserved the reader, with 56 page references and loaded images (first image 1778×1000).
+- Browser and API: Solo Leveling had zero hosted English chapters and three source-listed external options (Webnovel, Pocket Comics, Tappytoon). External chapters remain links, not in-site chapter rows.
+- Direct publisher verification: WEBTOON's Omniscient Reader listing and Tappytoon's Solo Leveling Episode 0 resolved. Other publisher links are source-listed but not independently certified; availability, regional restrictions and payment vary.
+- Catalog checks stop scheduling new requests after navigation, cache for two minutes, preserve unknown errors and offer a recheck. Images/cards are not rebuilt during each check.
+- Existing saved library data is preserved. Available MangaDex uploads no longer automatically imply that the entire series has been completed.
+
 ## MangaDex catalogs and image repair — 2026-10-20
 
 - Manga/Manhwa now share the anime-style paginated browser, with search, genre filters, sort and totals. Country filtering uses original Japanese/Korean language metadata. Local catalog reported 68,435 manga and 7,517 manhwa; counts change upstream. Per-query browsing stops at 9,984 records due to the source's offset cap; search/filter to narrow larger sets.

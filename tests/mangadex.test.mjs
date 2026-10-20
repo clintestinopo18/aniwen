@@ -1,16 +1,50 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMangaDexProvider, mangaRecord } from "../providers/mangadex.mjs";
+import { createMangaDexProvider, mangaRecord, publisherLinks } from "../providers/mangadex.mjs";
 const id = "11111111-1111-1111-1111-111111111111", cid = "22222222-2222-2222-2222-222222222222";
 const record = { id, attributes: { title: { ja: "原作" }, altTitles: [{ en: "English title" }], originalLanguage: "ko", contentRating: "safe", tags: [], description: { en: "Story" } },
   relationships: [{ type: "cover_art", attributes: { fileName: "cover.jpg" } }] };
 const chapter = { id: cid, attributes: { chapter: "0", pages: 3, translatedLanguage: "en", title: "Start" }, relationships: [{ type: "manga", id }] };
 const reply = data => ({ ok: true, status: 200, json: async () => ({ result: "ok", ...data }) });
+test("publisher links use only source-listed HTTPS publisher domains", () => {
+  const url = "https://www.webtoons.com/en/action/example/list?title_no=123";
+  assert.deepEqual(publisherLinks({ engtl: url }), [{ name: "webtoons.com", url }]);
+  for (const bad of ["javascript:alert(1)", "http://webtoons.com/title", "https://webtoons.com.evil.example/title", "https://evil.example/webtoons.com", "https://user:pass@webtoons.com/title", "https://webtoons.com:444/title"]) assert.deepEqual(publisherLinks({ engtl: bad }), []);
+  assert.deepEqual(publisherLinks(), []);
+  assert.deepEqual(mangaRecord({ ...record, attributes: { ...record.attributes, links: { engtl: url } } }).readingLinks, publisherLinks({ engtl: url }));
+});
 test("MangaDex uses the image CDN and English titles without extra cover lookups", () => {
   const item = mangaRecord(record);
   assert.equal(item.image, `https://uploads.mangadex.org/covers/${id}/cover.jpg.256.jpg`);
   assert.equal(item.title, "English title");
   assert.equal(item.countryOfOrigin, "KR");
+});
+test("empty titles expose trusted external reading links without turning them into chapters", async () => {
+  const p = createMangaDexProvider(async u => {
+    const url = new URL(u);
+    if (url.pathname === `/manga/${id}`) return reply({ data: record });
+    if (url.searchParams.get("includeExternalUrl") === "1") return reply({ data: [
+      { attributes: { externalUrl: "https://www.tappytoon.com/en/book/example" } },
+      { attributes: { externalUrl: "https://www.tappytoon.com/en/chapters/123" } },
+      { attributes: { externalUrl: "https://unknown.example/chapter" } },
+    ], total: 3 });
+    return reply({ data: [], total: 0 });
+  });
+  const info = await p.fetchMangaInfo(id);
+  assert.equal(info.chapters.length, 0);
+  assert.equal(info.readingLinks.length, 1);
+  assert.equal(info.readingLinks[0].name, "tappytoon.com");
+});
+test("an unavailable optional publisher lookup does not discard title details", async () => {
+  const p = createMangaDexProvider(async u => {
+    const url = new URL(u);
+    if (url.pathname === `/manga/${id}`) return reply({ data: record });
+    if (url.searchParams.get("includeExternalUrl") === "1") throw new Error("network");
+    return reply({ data: [], total: 0 });
+  });
+  const info = await p.fetchMangaInfo(id);
+  assert.equal(info.title, "English title");
+  assert.deepEqual(info.readingLinks, []);
 });
 test("catalog paginates and separates Korean and Japanese originals", async () => {
   let url;

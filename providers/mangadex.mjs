@@ -1,6 +1,15 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
 function uuid(id) { if (!UUID.test(String(id))) fail("Invalid MangaDex ID."); return id; }
+export function publisherLinks(links = {}) {
+  // engtl is the source's official English translation link. Never invent a title URL.
+  const hosts = ["webtoons.com", "tapas.io", "tappytoon.com", "pocketcomics.com", "webnovel.com", "manta.net", "lezhinus.com", "lezhin.com", "viz.com", "mangaplus.shueisha.co.jp", "yenpress.com", "sevenseasentertainment.com", "kodansha.us", "global.bookwalker.jp", "inkr.com", "comikey.com"];
+  try {
+    const url = new URL(links?.engtl);
+    if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || !hosts.some(h => url.hostname === h || url.hostname.endsWith("." + h))) return [];
+    return [{ name: url.hostname.replace(/^www\./, ""), url: url.href }];
+  } catch { return []; }
+}
 function pageNumber(value, limit) {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 1 || n * limit > 10000) fail("This catalog page is outside the source limit. Narrow your search.");
@@ -15,6 +24,7 @@ export function mangaRecord(record) {
     image: cover ? `https://uploads.mangadex.org/covers/${record.id}/${encodeURIComponent(cover)}.256.jpg` : "",
     countryOfOrigin: a.originalLanguage === "ko" ? "KR" : a.originalLanguage === "ja" ? "JP" : a.originalLanguage,
     releaseDate: a.year, status: a.status, sourceCredit: { name: "MangaDex", url: `https://mangadex.org/title/${record.id}` },
+    readingLinks: publisherLinks(a.links),
   };
 }
 function chapterRecord(c) {
@@ -70,7 +80,18 @@ export function createMangaDexProvider(fetcher = fetch) {
       uuid(id);
       const [data, feed] = await Promise.all([get(`/manga/${id}`, { "includes[]": "cover_art" }), chapters(id)]);
       if (!["safe", "suggestive"].includes(data.data.attributes.contentRating)) fail("This title is outside this catalog.", 404);
-      return { ...mangaRecord(data.data), ...feed, playbackNotice: "Only currently hosted English chapters are listed. Missing or removed chapters cannot be supplied by this source." };
+      const record = mangaRecord(data.data);
+      if (!record.readingLinks.length && !feed.chapters.length) {
+        // External entries are reading links, never in-site chapters. Failure here must not hide metadata.
+        try {
+          const external = await get(`/manga/${id}/feed`, { limit: 100, "translatedLanguage[]": "en", "order[chapter]": "asc", includeExternalUrl: 1, includeEmptyPages: 1, includeFuturePublishAt: 0, "contentRating[]": ["safe", "suggestive"] });
+          const links = external.data.flatMap(c => publisherLinks({ engtl: c.attributes.externalUrl }));
+          const firstByPublisher = new Map();
+          for (const link of links) if (!firstByPublisher.has(link.name)) firstByPublisher.set(link.name, link);
+          record.readingLinks = [...firstByPublisher.values()];
+        } catch { /* Publisher lookup is optional; never fabricate links or chapters. */ }
+      }
+      return { ...record, ...feed, playbackNotice: "Only currently hosted English chapters are listed. Missing or removed chapters cannot be supplied by this source." };
     },
     async chapter(id, chapterId) {
       uuid(id); uuid(chapterId);

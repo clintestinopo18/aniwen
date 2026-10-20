@@ -110,5 +110,6 @@ export function normalize(item, kind, provider, base) {
     provider,
     base,
     editorial: false,
+    readingLinks: (item.readingLinks || []).filter(l => l?.name && safeUrl(l.url)),
   };
 }

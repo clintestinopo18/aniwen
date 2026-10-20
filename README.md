@@ -85,6 +85,10 @@ The curated collection is a limited editorial selection, not live rankings. Coll
 
 ## Availability
 
+Manga/Manhwa catalog cards check hosted English chapter lists in the background (two requests at a time, short-lived in-memory results). The Reading filter shows only titles with chapters **on the current catalog page**; pagination still follows the full catalog. Errors are marked unconfirmed, never interpreted as empty chapter lists. Listings do not guarantee working images or full-series coverage.
+
+Title pages explain partial coverage and show source-listed English publisher links on supported HTTPS publisher domains. If a title has no hosted chapters or publisher metadata link, its external English chapter feed is checked for publisher links. Links open externally and can require payment, sign-in or regional access. Missing chapters are not fabricated, scraped around access controls, or silently replaced by another series. MangaDex titles are not automatically marked completed just because the available uploads were read; completion can still be set manually in My library.
+
 The former `api.consumet.org` endpoint returned HTTP 451 during this build. Individual providers may be unavailable or change their behavior. Episode guides do not guarantee playable videos. Provider URLs requiring browser-incompatible headers or blocked by CORS may not play. No media proxy or DRM bypass is included.
 
 Software access and content distribution rights are separate. Confirm rights and provider terms before monetizing content.

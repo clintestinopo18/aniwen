@@ -1,4 +1,14 @@
 import { loadCatalog, normalize, safeUrl } from "./catalog.js";
+import { chapterAvailability, availabilityLabel, checkAvailability } from "./reading-availability.js";
+const availabilityCache = new Map();
+function cachedAvailability(item) {
+  const value = availabilityCache.get(`${item.base}|${item.key}`);
+  return value && Date.now() - value.checkedAt < 120000 ? value : null;
+}
+function saveAvailability(item, value) {
+  if (availabilityCache.size >= 500) availabilityCache.delete(availabilityCache.keys().next().value);
+  availabilityCache.set(`${item.base}|${item.key}`, { ...value, checkedAt: Date.now() });
+}
 import { API_CONFIG } from "./config.js";
 import { embedUrl, playerEvent } from "./megaplay.js";
 const $ = (s) => document.querySelector(s);
@@ -158,7 +168,8 @@ function markDone(item, unit) {
   progress(item, unit);
   const entry = library[item.key];
   entry.done = [...new Set([...(entry.done || []), String(unit.id)])];
-  if (activeTotalKnown && activeUnits.length && entry.done.length >= activeUnits.length)
+  // Finishing the available MangaDex uploads does not establish that the entire series is complete.
+  if (item.provider !== "mangadex" && activeTotalKnown && activeUnits.length && entry.done.length >= activeUnits.length)
     entry.status = "completed";
   persist("library", library);
 }
@@ -372,13 +383,20 @@ async function browse(kind, params, version) {
   const genres = ["all", "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
   const genre = genres.includes(params.get("genre")) ? params.get("genre") : "all";
   const query = (params.get("q") || "").slice(0, 150);
-  const route = (p) => `#${kind}?${new URLSearchParams({ page: String(p), sort, genre, q: query })}`;
+  const hostedOnly = !anime && params.get("availability") === "hosted";
+  const route = (p) => `#${kind}?${new URLSearchParams({ page: String(p), sort, genre, q: query, ...(hostedOnly ? { availability: "hosted" } : {}) })}`;
   main.innerHTML = `<div class="content"><div class="page-head"><div class="eyebrow">Beyond the collection</div><h1>${pretty(kind)}, your way.</h1><p>${anime ? "Explore the live anime catalog—not just our starter picks. Stream availability varies by title and episode." : "Explore the live chapter catalog. Choose a series to see its available chapters."}</p></div><form class="catalog-search" id="catalog-search"><input id="catalog-query" type="search" aria-label="Search this catalog" maxlength="150" placeholder="Search ${pretty(kind).toLowerCase()} titles…" value="${esc(query)}"><button class="button">Search</button></form><div class="filter-bar">${anime ? `<label>Genre <select id="catalog-genre">${genres.map(g => `<option value="${g}" ${genre === g ? "selected" : ""}>${g === "all" ? "All genres" : g}</option>`).join("")}</select></label>` : ""}<label>Sort <select id="catalog-sort">${sortOptions.map(([v,l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>${l}</option>`).join("")}</select></label><span class="result-count">Page ${page} · ${anime ? "AniList / MegaPlay" : "WeebCentral"}</span><a href="#${kind}?sort=curated" class="text-link">Yoru picks</a></div><div id="catalog-results">${loading("Loading the live catalog…")}</div><nav class="catalog-pagination" aria-label="Catalog pages" id="catalog-pagination"></nav></div>`;
-  const filter = () => { location.hash = `${kind}?${new URLSearchParams({ sort: $("#catalog-sort").value, genre: $("#catalog-genre")?.value || "all", q: $("#catalog-query").value.trim() })}`; };
+  const filter = () => { location.hash = `${kind}?${new URLSearchParams({ sort: $("#catalog-sort").value, genre: $("#catalog-genre")?.value || "all", q: $("#catalog-query").value.trim(), ...(!anime ? { availability: $("#catalog-availability").value } : {}) })}`; };
   if (!anime) {
     $(".page-head p").textContent = "Explore the MangaDex catalog beyond our starter picks. English chapter availability varies by title.";
     $(".result-count").textContent = `Page ${page} · MangaDex`;
     $(".filter-bar").insertAdjacentHTML("afterbegin", `<label>Genre <select id="catalog-genre">${genres.map(g => `<option value="${g}" ${genre === g ? "selected" : ""}>${g === "all" ? "All genres" : g}</option>`).join("")}</select></label>`);
+    $(".filter-bar").insertAdjacentHTML("beforeend", `<label>Reading <select id="catalog-availability"><option value="all">All titles</option><option value="hosted" ${hostedOnly ? "selected" : ""}>With English chapters (this page)</option></select></label>`);
+    $("#catalog-results").insertAdjacentHTML("beforebegin", '<div class="reading-summary"><p id="availability-summary" role="status">Checking this page for hosted English chapters…</p><p>Chapter lists may be partial. Images can still become unavailable. This filter checks each catalog page separately; use Next page to discover more.</p><button class="button secondary" id="retry-availability" hidden>Recheck unconfirmed titles</button></div>');
+    $("#catalog-availability").onchange = () => {
+      const url = new URLSearchParams({ page: String(page), sort, genre, q: query, availability: $("#catalog-availability").value });
+      location.hash = `${kind}?${url}`;
+    };
   }
   $("#catalog-search").onsubmit = e => { e.preventDefault(); filter(); };
   $("#catalog-sort").onchange = filter;
@@ -390,6 +408,48 @@ async function browse(kind, params, version) {
     if (!anime) $(".result-count").textContent = `Page ${page} · ${Number(data.total || 0).toLocaleString()} titles · MangaDex`;
     $("#catalog-results").innerHTML = items.length ? `<div class="collection-grid">${items.map(i => card(i)).join("")}</div>` : empty("No titles found", "Try another search or filter.");
     $("#catalog-pagination").innerHTML = `${page > 1 ? `<a class="button secondary" href="${esc(route(page - 1))}">← Previous page</a>` : ""}<span>Page ${page}</span>${data.hasNextPage && page < 10000 ? `<a class="button secondary" href="${esc(route(page + 1))}">Next page →</a>` : ""}`;
+    if (!anime) {
+      const states = new Map(items.map(item => [item.key, cachedAvailability(item)]));
+      $("#catalog-results").innerHTML = `<div class="collection-grid">${items.map(item => `<div class="reading-card" data-reading-key="${esc(item.key)}">${card(item)}<p class="reading-status"></p></div>`).join("")}</div><div id="reading-empty"></div>`;
+      const readingCards = [...$("#catalog-results").querySelectorAll("[data-reading-key]")];
+      let running = false;
+      const paint = () => {
+        if (version !== routeVersion) return;
+        let hosted = 0, unknown = 0, pending = 0;
+        for (const value of states.values()) {
+          if (!value) pending++;
+          else if (value.state === "hosted") hosted++;
+          else if (value.state === "unknown") unknown++;
+        }
+        $("#availability-summary").textContent = `${hosted} of ${items.length} titles on this page have hosted English chapters${pending ? ` · ${pending} checking` : ""}${unknown ? ` · ${unknown} unconfirmed` : ""}.`;
+        $("#retry-availability").hidden = running || !unknown;
+        readingCards.forEach((element, index) => {
+          const item = items[index], value = states.get(item.key);
+          element.hidden = hostedOnly && value?.state !== "hosted";
+          const status = element.querySelector(".reading-status");
+          status.textContent = availabilityLabel(value, item.readingLinks?.length > 0);
+          status.className = `reading-status ${value?.state || "pending"}`;
+        });
+        const visible = items.filter(item => !hostedOnly || states.get(item.key)?.state === "hosted");
+        $("#reading-empty").innerHTML = visible.length ? "" : empty(
+          pending ? "Checking chapter availability…" : "No confirmed chapter lists on this page",
+          pending ? "Titles will appear as their chapter lists are checked." : "Try the next catalog page, change your search, or switch to All titles. Unconfirmed titles are not treated as empty.",
+        );
+      };
+      const run = async () => {
+        running = true;
+        paint();
+        const unchecked = items.filter(item => !states.get(item.key) || states.get(item.key).state === "unknown");
+        await checkAvailability(unchecked,
+          item => api(`manga/${provider}/chapters?${new URLSearchParams({ id: item.id, page: "1" })}`, item.base),
+          (item, value) => { states.set(item.key, value); saveAvailability(item, value); paint(); },
+          { isCurrent: () => version === routeVersion });
+        running = false;
+        paint();
+      };
+      $("#retry-availability").onclick = run;
+      void run();
+    }
   } catch (e) {
     if (version === routeVersion) $("#catalog-results").innerHTML = `<div class="notice error">${esc(networkError(e))}</div><button class="button secondary" id="retry-catalog">Retry catalog</button>`;
     if (version === routeVersion) $("#retry-catalog").onclick = () => render();
@@ -507,6 +567,10 @@ function sourceCredits(data, unit) {
   const credits = [data.sourceCredit, ...(unit?.groups || [])].filter((c) => c?.name && safeUrl(c.url));
   return credits.length ? `<p class="source-credits">Source & credits: ${credits.map((c) => `<a href="${esc(safeUrl(c.url))}" target="_blank" rel="noopener noreferrer">${esc(c.name)}</a>`).join(" · ")}</p>` : "";
 }
+function readingOptions(data) {
+  const links = (data.readingLinks || []).filter(l => l?.name && safeUrl(l.url));
+  return links.length ? `<section class="reading-options"><h3>Publisher reading options</h3><p>English translation links listed by MangaDex. These open outside Yoru; payment, sign-in, or regional restrictions may apply.</p><div class="actions">${links.map(l => `<a class="button secondary" href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener noreferrer">${esc(l.name)} ↗</a>`).join("")}</div></section>` : "";
+}
 function unitList(item, data, selected = "") {
   let units = item.kind === "anime" ? data.episodes || [] : data.chapters || [];
   activeUnits = units;
@@ -516,7 +580,7 @@ function unitList(item, data, selected = "") {
   if (!units.length)
     return empty(
       item.kind === "anime" ? "No episodes returned" : "No chapters returned",
-      "This source has no hosted English chapters for this edition right now. The title may still be listed in the catalog.",
+      item.kind === "anime" ? "This source did not return episodes for this edition." : data.chapterPagination?.chapter !== undefined ? "No hosted English upload was found for this chapter number. Try Show all or a publisher reading option." : "This source has no hosted English chapters for this edition right now. Check the publisher options above, if available, or find another edition.",
       `<a class="button secondary" href="#search?type=${item.kind}&q=${encodeURIComponent(item.title)}">Find another edition</a>`,
     );
   return item.kind === "anime"
@@ -549,6 +613,12 @@ async function titlePage(key, version) {
 function renderTitleUnits(item, data, version) {
   const panel = $("#units-panel"), pagination = data.chapterPagination;
   panel.innerHTML = (data.playbackNotice ? `<p class="embed-notice">${esc(data.playbackNotice)}</p>` : "") + (pagination ? `<p class="embed-notice">English chapters · ${pagination.chapter !== undefined ? "Filtered chapter results" : `Loaded through source page ${pagination.currentPage} of ${pagination.totalPages}`}. Load more for older/later entries, or find a chapter number. Alternate uploads are grouped by chapter.</p><form id="chapter-search" class="catalog-search"><input type="number" min="0" step="any" id="chapter-number" aria-label="Chapter number" placeholder="Chapter number (e.g. 1 or 12.5)" value="${esc(pagination.chapter ?? "")}"><button class="button secondary">Find chapter</button><button class="button secondary" type="button" id="reset-chapters">Show all</button></form><p id="chapter-status" role="status"></p>` : "") + unitList(item, data) + (pagination?.hasNextPage ? '<button class="button secondary" id="more-chapters">Load more chapters</button>' : "");
+  if (item.kind !== "anime") {
+    const availability = chapterAvailability(data);
+    if (pagination?.chapter === undefined) saveAvailability(item, availability);
+    const first = availability.first;
+    panel.insertAdjacentHTML("afterbegin", readingOptions(data) + `<p class="reading-coverage">${availability.state === "hosted" ? `English chapters are listed below, but this does not mean the whole series is available.${first != null && Number(first) > 1 && pagination?.currentPage === 1 && pagination?.chapter === undefined ? ` The first available chapter is ${esc(first)}; earlier chapters are missing from this source.` : ""}` : availability.state === "none" ? "No hosted English chapters in this result." : "Chapter availability could not be confirmed."}</p>`);
+  }
   if (!pagination) return;
   const loadPage = async (page, chapter, replace) => {
     panel.querySelectorAll("button").forEach(b => b.disabled = true);
