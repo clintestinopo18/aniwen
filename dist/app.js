@@ -825,7 +825,10 @@ async function readerPage(key, params, version) {
         if (version !== routeVersion) return;
         $("#reader-image-error").hidden = false;
         $("#reader-image-error").textContent = "Some pages could not load from the image host. Try reloading the chapter, or use the source link below.";
+        img.alt = "Page could not load. The image source may be unavailable.";
+        img.style.minHeight = "160px";
       };
+      if (img.complete && !img.naturalWidth) img.onerror();
     });
     const update = () => {
       $("#reader-progress").textContent =
@@ -896,16 +899,6 @@ async function readerPage(key, params, version) {
         }),
     );
     renderMode();
-    $("#reader-pages")
-      .querySelectorAll("img")
-      .forEach(
-        (img) =>
-          (img.onerror = () => {
-            img.alt =
-              "Page could not load. The image source may be unavailable.";
-            img.style.minHeight = "160px";
-          }),
-      );
   } catch (e) {
     if (version === routeVersion)
       $("#reader-body").innerHTML =

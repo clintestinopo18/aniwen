@@ -71,3 +71,11 @@
 - No load test, production security audit, cloud account synchronization, payments, advertising, or content licensing is included.
 
 The 20-title collection is an editorial starter collection, not live trending data or a claim of streaming availability. The bundled server uses @consumet/extensions 1.8.8. Do not treat successful API health as proof that external providers work.
+## Hosted reading verification — 2026-10-20
+
+- Render release 1.3.1: health 200; anime catalog page 2 returned 24 titles.
+- MangaPill One Piece info returned 1,212 chapter entries and chapter 1 returned 57 image references.
+- ComicK Solo Leveling info and chapter page 2 returned English chapters; exact chapter 200 returned one matching entry and 89 image references.
+- Browser verification found zero loaded ComicK images. Ordinary HTTP requests to the returned ComicK and MangaPill image URLs returned 403. Metadata/page-reference success is not proof of readable images; reading remains externally blocked in this environment.
+- Fixed a duplicate image-error handler that suppressed the reader's failure notice. No challenge bypass, rotating proxies, or image-access workaround was added.
+- 19 offline tests and JavaScript syntax checks passed.
