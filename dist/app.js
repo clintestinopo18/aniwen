@@ -74,6 +74,7 @@ let routeVersion = 0,
   searchType = "all",
   homeType = "all";
 let activeUnits = [],
+  activeTotalKnown = true,
   activeItem = null,
   readerPages = [],
   readerIndex = 0,
@@ -157,7 +158,7 @@ function markDone(item, unit) {
   progress(item, unit);
   const entry = library[item.key];
   entry.done = [...new Set([...(entry.done || []), String(unit.id)])];
-  if (activeUnits.length && entry.done.length >= activeUnits.length)
+  if (activeTotalKnown && activeUnits.length && entry.done.length >= activeUnits.length)
     entry.status = "completed";
   persist("library", library);
 }
@@ -262,12 +263,13 @@ async function searchProvider(query, kind) {
 }
 async function resolveTitle(key) {
   if (all.has(key)) return;
-  const match = /^title-(anime|manga|manhwa)-(megaplay|weebcentral)-(.+)$/.exec(key);
+  const match = /^title-(anime|manga|manhwa)-(megaplay|weebcentral|mangapill|comick)-(.+)$/.exec(key);
   if (!match || (match[1] === "anime") !== (match[2] === "megaplay")) return;
   const [, kind, provider, encodedId] = match;
   const data = await api(`${groupFor(kind)}/${provider}/info?id=${encodeURIComponent(decodeURIComponent(encodedId))}`);
   const item = normalize(data, kind, provider, prefs.base);
   remember(item);
+  all.set(key, item);
   detailCache.set(item.key, data);
 }
 async function details(item) {
@@ -502,6 +504,7 @@ function sourceCredits(data, unit) {
 function unitList(item, data, selected = "") {
   let units = item.kind === "anime" ? data.episodes || [] : data.chapters || [];
   activeUnits = units;
+  activeTotalKnown = !data.chapterPagination?.hasNextPage && data.chapterPagination?.chapter === undefined;
   activeItem = item;
   const done = new Set(library[item.key]?.done || []);
   if (!units.length)
@@ -527,7 +530,7 @@ async function titlePage(key, version) {
     try {
       const data = await details(item);
       if (version !== routeVersion) return;
-      $("#units-panel").innerHTML = (data.playbackNotice ? `<p class="embed-notice">${esc(data.playbackNotice)}</p>` : "") + unitList(item, data);
+      renderTitleUnits(item, data, version);
     } catch (e) {
       if (version === routeVersion)
         $("#units-panel").innerHTML = errorPanel(e, key);
@@ -535,6 +538,31 @@ async function titlePage(key, version) {
   } else {
     await findEdition(key);
   }
+}
+function renderTitleUnits(item, data, version) {
+  const panel = $("#units-panel"), pagination = data.chapterPagination;
+  panel.innerHTML = (data.playbackNotice ? `<p class="embed-notice">${esc(data.playbackNotice)}</p>` : "") + (pagination ? `<p class="embed-notice">English chapters · ${pagination.chapter !== undefined ? "Filtered chapter results" : `Loaded through source page ${pagination.currentPage} of ${pagination.totalPages}`}. Load more for older/later entries, or find a chapter number. Alternate uploads are grouped by chapter.</p><form id="chapter-search" class="catalog-search"><input type="number" min="0" step="any" id="chapter-number" aria-label="Chapter number" placeholder="Chapter number (e.g. 1 or 12.5)" value="${esc(pagination.chapter ?? "")}"><button class="button secondary">Find chapter</button><button class="button secondary" type="button" id="reset-chapters">Show all</button></form><p id="chapter-status" role="status"></p>` : "") + unitList(item, data) + (pagination?.hasNextPage ? '<button class="button secondary" id="more-chapters">Load more chapters</button>' : "");
+  if (!pagination) return;
+  const loadPage = async (page, chapter, replace) => {
+    panel.querySelectorAll("button").forEach(b => b.disabled = true);
+    $("#chapter-status").textContent = "Loading chapters…";
+    try {
+      const result = await api(`manga/${item.provider}/chapters?${new URLSearchParams({ id: item.id, page: String(page), ...(chapter !== undefined ? { chapter } : {}) })}`, item.base);
+      if (version !== routeVersion) return;
+      const chapters = new Map();
+      for (const c of [...(replace ? [] : data.chapters), ...result.chapters]) if (!chapters.has(String(c.chapterNumber))) chapters.set(String(c.chapterNumber), c);
+      data.chapters = [...chapters.values()].sort((a,b) => Number(a.chapterNumber) - Number(b.chapterNumber));
+      data.chapterPagination = result.chapterPagination;
+      renderTitleUnits(item, data, version);
+    } catch (e) {
+      if (version !== routeVersion) return;
+      $("#chapter-status").textContent = networkError(e);
+      panel.querySelectorAll("button").forEach(b => b.disabled = false);
+    }
+  };
+  $("#chapter-search").onsubmit = e => { e.preventDefault(); const value = $("#chapter-number").value.trim(); loadPage(1, value || undefined, true); };
+  $("#reset-chapters").onclick = () => loadPage(1, undefined, true);
+  if ($("#more-chapters")) $("#more-chapters").onclick = () => loadPage(pagination.currentPage + 1, pagination.chapter, false);
 }
 function errorPanel(error, key) {
   return `<div class="notice error">${esc(networkError(error))}</div><div class="actions"><button class="button secondary" data-find="${esc(key)}">Try again</button><a class="button secondary" href="#profile">My profile</a></div>`;
@@ -564,7 +592,7 @@ async function findEdition(key) {
     } else {
       detailCache.delete(key);
       const data = await details(item);
-      if (version === routeVersion) panel.innerHTML = unitList(item, data);
+      if (version === routeVersion) renderTitleUnits(item, data, version);
     }
   } catch (e) {
     if (version === routeVersion) panel.innerHTML = errorPanel(e, key);
@@ -753,11 +781,19 @@ async function readerPage(key, params, version) {
   try {
     const data = await details(item);
     if (version !== routeVersion) return;
+    const requested = params.get("unit");
+    if (item.provider === "comick" && requested && !data.chapters?.some(c => String(c.id) === requested)) {
+      const number = requested.match(/-chapter-(\d+(?:\.\d+)?)-en$/)?.[1];
+      if (number && requested.startsWith(item.id + "/")) {
+        const found = await api(`manga/comick/chapters?${new URLSearchParams({ id: item.id, chapter: number })}`, item.base);
+        if (version !== routeVersion) return;
+        data.chapters = [...data.chapters, ...found.chapters.filter(c => !data.chapters.some(old => old.id === c.id))].sort((a,b) => Number(a.chapterNumber) - Number(b.chapterNumber));
+      }
+    }
     activeUnits = data.chapters || [];
+    activeTotalKnown = !data.chapterPagination?.hasNextPage && data.chapterPagination?.chapter === undefined;
     activeItem = item;
-    const unit =
-      activeUnits.find((u) => String(u.id) === params.get("unit")) ||
-      activeUnits[0];
+    const unit = requested ? activeUnits.find((u) => String(u.id) === requested) : activeUnits[0];
     if (!unit) throw new Error("No chapter is available for this edition.");
     const response = await api(
       `manga/${item.provider}/read?chapterId=${encodeURIComponent(unit.id)}`,

@@ -6,6 +6,7 @@ import { ANIME, MANGA } from "@consumet/extensions";
 import { createAniwatchProvider, aniwatchRoute } from "./providers/aniwatch.mjs";
 import { createMegaPlayProvider } from "./providers/megaplay.mjs";
 import { createChapterProvider } from "./providers/chapters.mjs";
+import { createComicKProvider, createMangaPillProvider } from "./providers/reading.mjs";
 
 // Deployment-owned upstream, using the domain documented by aniwatch 2.27.9.
 // Load after setting this because the package reads its configuration on import.
@@ -36,8 +37,8 @@ const providers = {
   },
   manga: {
     mangadex: new MANGA.MangaDex(),
-    mangapill: new MANGA.MangaPill(),
-    comick: new MANGA.ComicK(),
+    mangapill: createMangaPillProvider(new MANGA.MangaPill()),
+    comick: createComicKProvider(new MANGA.ComicK()),
     mangareader: new MANGA.MangaReader(),
     weebcentral: createChapterProvider(new MANGA.WeebCentral()),
   },
@@ -166,7 +167,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/health")
         return json(res, 200, {
           service: "Yoru anime and manga API",
-          version: "1.3.0",
+          version: "1.3.1",
           library: "@consumet/extensions@1.8.8",
           aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
           note: "Server readiness only; external search and playback availability are not guaranteed.",
@@ -190,6 +191,8 @@ const server = http.createServer(async (req, res) => {
       let operation;
       if (action === "catalog" && provider.browse) {
         operation = () => provider.browse(Object.fromEntries(url.searchParams));
+      } else if (action === "chapters" && provider.chapters) {
+        operation = () => provider.chapters(url.searchParams.get("id"), url.searchParams.get("page") || 1, url.searchParams.has("chapter") ? url.searchParams.get("chapter") : undefined);
       } else if (action === "info") {
         const id = url.searchParams.get("id");
         if (!id || id.length > 700) fail("A valid title id is required.");

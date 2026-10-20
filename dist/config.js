@@ -3,6 +3,6 @@
 export const API_CONFIG = Object.freeze({
   base: "https://aniwen-consumet.onrender.com/api",
   anime: "megaplay",
-  manga: "weebcentral",
-  manhwa: "weebcentral",
+  manga: "mangapill",
+  manhwa: "comick",
 });

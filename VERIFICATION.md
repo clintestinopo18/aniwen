@@ -1,5 +1,13 @@
 # Build verification — 2026-10-18
 
+## Hosted-provider correction — 2026-10-19
+
+- Render 1.3.0 confirmed anime catalog/search 200, but WeebCentral info and read returned 502 despite passing locally. The new frontend was held rather than published with that default.
+- Hosted fallback checks: ComicK Solo Leveling info and pages 200; MangaPill One Piece info returned 1,212 entries including extras, and chapter 1 returned 57 page URLs.
+- Defaults corrected to MangaPill (manga) and ComicK (manhwa). ComicK English chapters are paginated explicitly; the original library only returned the first 60 uploads and included multiple languages.
+- Local exact lookups for Solo Leveling chapters 1 and 200 returned the requested English chapter, including chapter 200's series-finale title. Chapter zero/decimals are retained, duplicate uploads grouped, and a partial list never marks a whole series completed.
+- 19 offline tests cover both fallback adapters, safe IDs, English filtering, page metadata, exact-number filtering, and numeric order, in addition to existing playback tests.
+
 ## Expanded anime catalog and chapter provider — 2026-10-19
 
 - Anime catalog returned 24 entries on each of pages 1 and 2 with different titles and a next-page flag. Browser navigation to page 2 succeeded. Search, genre and sorting are server-side AniList filters; no bulk catalog download is performed.
