@@ -263,7 +263,7 @@ async function searchProvider(query, kind) {
 }
 async function resolveTitle(key) {
   if (all.has(key)) return;
-  const match = /^title-(anime|manga|manhwa)-(megaplay|weebcentral|mangapill|comick)-(.+)$/.exec(key);
+  const match = /^title-(anime|manga|manhwa)-(megaplay|weebcentral|mangapill|comick|mangadex)-(.+)$/.exec(key);
   if (!match || (match[1] === "anime") !== (match[2] === "megaplay")) return;
   const [, kind, provider, encodedId] = match;
   const data = await api(`${groupFor(kind)}/${provider}/info?id=${encodeURIComponent(decodeURIComponent(encodedId))}`);
@@ -364,7 +364,7 @@ function browseCurated(kind, params) {
   );
 }
 async function browse(kind, params, version) {
-  if (kind !== "anime" || params.get("sort") === "curated") return browseCurated(kind, params);
+  if (params.get("sort") === "curated") return browseCurated(kind, params);
   const anime = kind === "anime", provider = providerFor(kind);
   const page = Math.max(1, Math.min(10000, Math.floor(Number(params.get("page")) || 1)));
   const sortOptions = anime ? [["popular", "Most popular"], ["trending", "Trending now"], ["title", "Title A–Z"], ["year", "Newest releases"]] : [["popular", "Most popular"], ["updated", "Recently updated"], ["title", "Title A–Z"]];
@@ -375,13 +375,19 @@ async function browse(kind, params, version) {
   const route = (p) => `#${kind}?${new URLSearchParams({ page: String(p), sort, genre, q: query })}`;
   main.innerHTML = `<div class="content"><div class="page-head"><div class="eyebrow">Beyond the collection</div><h1>${pretty(kind)}, your way.</h1><p>${anime ? "Explore the live anime catalog—not just our starter picks. Stream availability varies by title and episode." : "Explore the live chapter catalog. Choose a series to see its available chapters."}</p></div><form class="catalog-search" id="catalog-search"><input id="catalog-query" type="search" aria-label="Search this catalog" maxlength="150" placeholder="Search ${pretty(kind).toLowerCase()} titles…" value="${esc(query)}"><button class="button">Search</button></form><div class="filter-bar">${anime ? `<label>Genre <select id="catalog-genre">${genres.map(g => `<option value="${g}" ${genre === g ? "selected" : ""}>${g === "all" ? "All genres" : g}</option>`).join("")}</select></label>` : ""}<label>Sort <select id="catalog-sort">${sortOptions.map(([v,l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>${l}</option>`).join("")}</select></label><span class="result-count">Page ${page} · ${anime ? "AniList / MegaPlay" : "WeebCentral"}</span><a href="#${kind}?sort=curated" class="text-link">Yoru picks</a></div><div id="catalog-results">${loading("Loading the live catalog…")}</div><nav class="catalog-pagination" aria-label="Catalog pages" id="catalog-pagination"></nav></div>`;
   const filter = () => { location.hash = `${kind}?${new URLSearchParams({ sort: $("#catalog-sort").value, genre: $("#catalog-genre")?.value || "all", q: $("#catalog-query").value.trim() })}`; };
+  if (!anime) {
+    $(".page-head p").textContent = "Explore the MangaDex catalog beyond our starter picks. English chapter availability varies by title.";
+    $(".result-count").textContent = `Page ${page} · MangaDex`;
+    $(".filter-bar").insertAdjacentHTML("afterbegin", `<label>Genre <select id="catalog-genre">${genres.map(g => `<option value="${g}" ${genre === g ? "selected" : ""}>${g === "all" ? "All genres" : g}</option>`).join("")}</select></label>`);
+  }
   $("#catalog-search").onsubmit = e => { e.preventDefault(); filter(); };
   $("#catalog-sort").onchange = filter;
-  if (anime) $("#catalog-genre").onchange = filter;
+  if ($("#catalog-genre")) $("#catalog-genre").onchange = filter;
   try {
-    const data = await api(`${groupFor(kind)}/${provider}/catalog?${new URLSearchParams({ page: String(page), sort, kind, ...(anime ? {genre} : {}), search: query })}`);
+    const data = await api(`${groupFor(kind)}/${provider}/catalog?${new URLSearchParams({ page: String(page), sort, kind, genre, search: query })}`);
     if (version !== routeVersion) return;
     const items = (data.results || []).filter(r => r.id).map(r => { const item = normalize(r, kind, provider, prefs.base); remember(item); return item; });
+    if (!anime) $(".result-count").textContent = `Page ${page} · ${Number(data.total || 0).toLocaleString()} titles · MangaDex`;
     $("#catalog-results").innerHTML = items.length ? `<div class="collection-grid">${items.map(i => card(i)).join("")}</div>` : empty("No titles found", "Try another search or filter.");
     $("#catalog-pagination").innerHTML = `${page > 1 ? `<a class="button secondary" href="${esc(route(page - 1))}">← Previous page</a>` : ""}<span>Page ${page}</span>${data.hasNextPage && page < 10000 ? `<a class="button secondary" href="${esc(route(page + 1))}">Next page →</a>` : ""}`;
   } catch (e) {
@@ -510,7 +516,8 @@ function unitList(item, data, selected = "") {
   if (!units.length)
     return empty(
       item.kind === "anime" ? "No episodes returned" : "No chapters returned",
-      "This provider has no available entries for this edition. You can try a different result or provider.",
+      "This source has no hosted English chapters for this edition right now. The title may still be listed in the catalog.",
+      `<a class="button secondary" href="#search?type=${item.kind}&q=${encodeURIComponent(item.title)}">Find another edition</a>`,
     );
   return item.kind === "anime"
     ? `<div class="episode-grid">${units.map((u, i) => `<a class="episode ${String(u.id) === selected ? "current" : ""} ${done.has(String(u.id)) ? "done" : ""}" title="${esc(u.title || "Episode " + (u.number || i + 1))}" href="#watch/${encodeURIComponent(item.key)}?unit=${encodeURIComponent(u.id)}">${done.has(String(u.id)) ? "✓ " : ""}${esc(u.number || i + 1)}</a>`).join("")}</div>`
@@ -550,7 +557,10 @@ function renderTitleUnits(item, data, version) {
       const result = await api(`manga/${item.provider}/chapters?${new URLSearchParams({ id: item.id, page: String(page), ...(chapter !== undefined ? { chapter } : {}) })}`, item.base);
       if (version !== routeVersion) return;
       const chapters = new Map();
-      for (const c of [...(replace ? [] : data.chapters), ...result.chapters]) if (!chapters.has(String(c.chapterNumber))) chapters.set(String(c.chapterNumber), c);
+      for (const c of [...(replace ? [] : data.chapters), ...result.chapters]) {
+        const chapterKey = c.chapterNumber == null ? c.id : String(c.chapterNumber);
+        if (!chapters.has(chapterKey)) chapters.set(chapterKey, c);
+      }
       data.chapters = [...chapters.values()].sort((a,b) => Number(a.chapterNumber) - Number(b.chapterNumber));
       data.chapterPagination = result.chapterPagination;
       renderTitleUnits(item, data, version);
@@ -782,6 +792,11 @@ async function readerPage(key, params, version) {
     const data = await details(item);
     if (version !== routeVersion) return;
     const requested = params.get("unit");
+    if (item.provider === "mangadex" && requested && !data.chapters?.some(c => String(c.id) === requested)) {
+      const found = await api(`manga/mangadex/chapter?${new URLSearchParams({ id: item.id, chapterId: requested })}`, item.base);
+      if (version !== routeVersion) return;
+      data.chapters = [...data.chapters, found].sort((a,b) => Number(a.chapterNumber) - Number(b.chapterNumber));
+    }
     if (item.provider === "comick" && requested && !data.chapters?.some(c => String(c.id) === requested)) {
       const number = requested.match(/-chapter-(\d+(?:\.\d+)?)-en$/)?.[1];
       if (number && requested.startsWith(item.id + "/")) {
@@ -824,7 +839,7 @@ async function readerPage(key, params, version) {
       img.onerror = () => {
         if (version !== routeVersion) return;
         $("#reader-image-error").hidden = false;
-        $("#reader-image-error").textContent = "Some pages could not load from the image host. Try reloading the chapter, or use the source link below.";
+        $("#reader-image-error").innerHTML = `Some pages could not load from the image host. Reload the chapter, use the source link below, or <a href="#search?type=${item.kind}&q=${encodeURIComponent(item.title)}">find another edition</a>.`;
         img.alt = "Page could not load. The image source may be unavailable.";
         img.style.minHeight = "160px";
       };

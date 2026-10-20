@@ -7,6 +7,7 @@ import { createAniwatchProvider, aniwatchRoute } from "./providers/aniwatch.mjs"
 import { createMegaPlayProvider } from "./providers/megaplay.mjs";
 import { createChapterProvider } from "./providers/chapters.mjs";
 import { createComicKProvider, createMangaPillProvider } from "./providers/reading.mjs";
+import { createMangaDexProvider } from "./providers/mangadex.mjs";
 
 // Deployment-owned upstream, using the domain documented by aniwatch 2.27.9.
 // Load after setting this because the package reads its configuration on import.
@@ -36,56 +37,13 @@ const providers = {
     animepahe: new ANIME.AnimePahe(),
   },
   manga: {
-    mangadex: new MANGA.MangaDex(),
+    mangadex: createMangaDexProvider(),
     mangapill: createMangaPillProvider(new MANGA.MangaPill()),
     comick: createComicKProvider(new MANGA.ComicK()),
     mangareader: new MANGA.MangaReader(),
     weebcentral: createChapterProvider(new MANGA.WeebCentral()),
   },
 };
-// Preserve country, English descriptions, and chapter credit from provider responses.
-const mdRecords = new Map(),
-  mdChapters = new Map();
-const md = providers.manga.mangadex;
-md.client.interceptors.request.use((config) => {
-  if (config.url?.includes("/feed?"))
-    config.url += "&includes[]=scanlation_group";
-  return config;
-});
-md.client.interceptors.response.use((response) => {
-  const data = response.data?.data;
-  for (const item of Array.isArray(data) ? data : data ? [data] : []) {
-    if (item.type === "manga") {
-      if (mdRecords.size > 500) mdRecords.delete(mdRecords.keys().next().value);
-      mdRecords.set(item.id, item);
-    }
-    if (item.type === "chapter") {
-      if (mdChapters.size > 3000)
-        mdChapters.delete(mdChapters.keys().next().value);
-      mdChapters.set(item.id, item);
-    }
-  }
-  return response;
-});
-function enrichManga(item) {
-  const record = mdRecords.get(item.id),
-    a = record?.attributes;
-  if (!a) return item;
-  return {
-    ...item,
-    title: a.title.en || a.altTitles?.find((t) => t.en)?.en || Object.values(a.title)[0] || item.title,
-    description: a.description.en || item.description,
-    countryOfOrigin:
-      a.originalLanguage === "ko"
-        ? "KR"
-        : a.originalLanguage === "ja"
-          ? "JP"
-          : a.originalLanguage,
-    genres: a.tags
-      .filter((t) => t.attributes.group === "genre")
-      .map((t) => t.attributes.name.en),
-  };
-}
 const cache = new Map();
 let inFlight = 0;
 const mime = {
@@ -167,7 +125,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/health")
         return json(res, 200, {
           service: "Yoru anime and manga API",
-          version: "1.3.1",
+          version: "1.4.0",
           library: "@consumet/extensions@1.8.8",
           aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
           note: "Server readiness only; external search and playback availability are not guaranteed.",
@@ -193,6 +151,8 @@ const server = http.createServer(async (req, res) => {
         operation = () => provider.browse(Object.fromEntries(url.searchParams));
       } else if (action === "chapters" && provider.chapters) {
         operation = () => provider.chapters(url.searchParams.get("id"), url.searchParams.get("page") || 1, url.searchParams.has("chapter") ? url.searchParams.get("chapter") : undefined);
+      } else if (action === "chapter" && provider.chapter) {
+        operation = () => provider.chapter(url.searchParams.get("id"), url.searchParams.get("chapterId"));
       } else if (action === "info") {
         const id = url.searchParams.get("id");
         if (!id || id.length > 700) fail("A valid title id is required.");
@@ -219,30 +179,7 @@ const server = http.createServer(async (req, res) => {
         );
         operation = () => provider.search(action, page, { kind: url.searchParams.get("kind") || "manga" });
       }
-      let data = await getData(url.pathname + url.search, operation);
-      if (name === "mangadex") {
-        if (data.results)
-          data = { ...data, results: data.results.map(enrichManga) };
-        else if (action === "info")
-          data = {
-            ...enrichManga(data),
-            sourceCredit: {
-              name: "MangaDex",
-              url: `https://mangadex.org/title/${data.id}`,
-            },
-            chapters: (data.chapters || [])
-              .filter((c) => c.pages > 0)
-              .map((c) => ({
-                ...c,
-                groups: (mdChapters.get(c.id)?.relationships || [])
-                  .filter((r) => r.type === "scanlation_group")
-                  .map((r) => ({
-                    name: r.attributes?.name || "Scanlation group",
-                    url: `https://mangadex.org/group/${r.id}`,
-                  })),
-              })),
-          };
-      }
+      const data = await getData(url.pathname + url.search, operation);
       return json(res, 200, data);
     }
     const pathname = decodeURIComponent(url.pathname);

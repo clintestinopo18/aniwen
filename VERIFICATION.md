@@ -1,5 +1,16 @@
 # Build verification — 2026-10-18
 
+## MangaDex catalogs and image repair — 2026-10-20
+
+- Manga/Manhwa now share the anime-style paginated browser, with search, genre filters, sort and totals. Country filtering uses original Japanese/Korean language metadata. Local catalog reported 68,435 manga and 7,517 manhwa; counts change upstream. Per-query browsing stops at 9,984 records due to the source's offset cap; search/filter to narrow larger sets.
+- Browser verified 24/24 covers loaded on each first catalog page, Manhwa page 2 navigation, and Manga Action filter (13,263 titles at test time).
+- Replaced legacy MangaDex cover URLs with the image CDN and removed per-cover API fan-out. Reader uses fresh at-home image URLs with API-provided page order.
+- Browser verified Omniscient Reader's Viewpoint chapter 255: 56 page references, first image loaded at 1778×1000; Page 2 navigation and reload resume worked.
+- Browser verified The Eminence in Shadow chapter 1: 37 page references, first image loaded at 980×795.
+- Live exact chapter-number search returned Chapter 1 using the documented `/chapter` query (the feed endpoint does not accept a chapter filter). Wrong-title chapter references returned 404; out-of-range catalog page returned 400.
+- 26 offline tests cover pagination, country/genre filters, image URLs, page order, safe IDs, deep-link membership, source errors and existing anime providers.
+- Only currently hosted English chapters are available. Some popular editions, including tested Solo Leveling and Frieren, have no hosted English chapters. No missing content is fabricated and no third-party blocking is bypassed. Legacy saved MangaPill/ComicK entries can still fail; their error notice links to search another edition.
+
 ## Hosted-provider correction — 2026-10-19
 
 - Render 1.3.0 confirmed anime catalog/search 200, but WeebCentral info and read returned 502 despite passing locally. The new frontend was held rather than published with that default.

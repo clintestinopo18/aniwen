@@ -93,7 +93,7 @@ export function normalize(item, kind, provider, base) {
         ? "manga"
         : kind;
   return {
-    key: ["megaplay", "weebcentral", "mangapill", "comick"].includes(provider) ? `title-${actualKind}-${provider}-${encodeURIComponent(id)}` : `remote-${actualKind}-${provider}-${encodeURIComponent(base)}-${encodeURIComponent(id)}`,
+    key: ["megaplay", "weebcentral", "mangapill", "comick", "mangadex"].includes(provider) ? `title-${actualKind}-${provider}-${encodeURIComponent(id)}` : `remote-${actualKind}-${provider}-${encodeURIComponent(base)}-${encodeURIComponent(id)}`,
     id,
     title: titleOf(item.title),
     alternative:
