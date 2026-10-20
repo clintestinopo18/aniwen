@@ -5,6 +5,8 @@
 - Manga/Manhwa now share the anime-style paginated browser, with search, genre filters, sort and totals. Country filtering uses original Japanese/Korean language metadata. Local catalog reported 68,435 manga and 7,517 manhwa; counts change upstream. Per-query browsing stops at 9,984 records due to the source's offset cap; search/filter to narrow larger sets.
 - Browser verified 24/24 covers loaded on each first catalog page, Manhwa page 2 navigation, and Manga Action filter (13,263 titles at test time).
 - Replaced legacy MangaDex cover URLs with the image CDN and removed per-cover API fan-out. Reader uses fresh at-home image URLs with API-provided page order.
+- Hosted visual QA caught cover-host placeholder artwork despite successful image responses. Added the document's no-referrer policy (the video iframe retains its explicit policy), then visually confirmed real series artwork in the catalog. Image dimensions alone were insufficient to verify covers.
+- Hosted Render 1.4.0 returned both catalogs, exact chapter 1, and 37/56 page references for the tested manga/manhwa. Browser verified real manga and manhwa images on the Render-hosted app. Private Sites publication succeeded; the test browser required sign-in there, so its authenticated UI was not rechecked.
 - Browser verified Omniscient Reader's Viewpoint chapter 255: 56 page references, first image loaded at 1778×1000; Page 2 navigation and reload resume worked.
 - Browser verified The Eminence in Shadow chapter 1: 37 page references, first image loaded at 980×795.
 - Live exact chapter-number search returned Chapter 1 using the documented `/chapter` query (the feed endpoint does not accept a chapter filter). Wrong-title chapter references returned 404; out-of-range catalog page returned 400.
