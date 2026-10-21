@@ -1,5 +1,13 @@
 # Build verification — 2026-10-18
 
+## Reader and library usability — 2026-10-21
+
+- 35 offline tests passed, including new-chapter progress reset, same-chapter resume, invalid page bounds and keyboard focus/modifier guards. JavaScript syntax and diff checks passed.
+- Browser: jumped to page 5 of Omniscient Reader's Viewpoint chapter 255, reloaded the chapter and retained page 5. Next listed chapter opened chapter 256 at page 1; right-arrow in Pages mode advanced to page 2.
+- Browser: library search for Omniscient showed only the matching saved title and a Continue chapter 256 / Page 2 link. Existing saved entries were retained.
+- Chapter 256 image host failed during this run. The reader displayed an explicit failed-image notice and reload/publisher options; this test does not certify those images as readable. Source coverage remains partial.
+- Added page jump, top page controls, chapter dropdown, previous/next listed chapter navigation, saved reading mode, reload/retry, library search/resume links, and a local fallback for broken covers only.
+
 ## Reading availability and publisher options — 2026-10-21
 
 - 32 offline tests passed, including availability unknown/empty/partial states, two-request concurrency, navigation cancellation, publisher-domain validation, external-link deduplication and optional lookup failures. JavaScript syntax and diff checks passed.

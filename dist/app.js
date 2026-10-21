@@ -1,5 +1,6 @@
 import { loadCatalog, normalize, safeUrl } from "./catalog.js";
 import { chapterAvailability, availabilityLabel, checkAvailability } from "./reading-availability.js";
+import { nextProgress, pageIndex, readerKey } from "./reader-state.js";
 const availabilityCache = new Map();
 function cachedAvailability(item) {
   const value = availabilityCache.get(`${item.base}|${item.key}`);
@@ -62,6 +63,7 @@ let prefs = {
   ...API_CONFIG,
   base: new URL(isLocal ? "/api" : API_CONFIG.base, location.origin).href.replace(/\/+$/, ""),
   autoplay: savedPreferences.autoplay === true,
+  readerMode: savedPreferences.readerMode === "paged" ? "paged" : "scroll",
 };
 // API destinations and providers are deployment settings, never visitor preferences.
 let profile = read("profile", {});
@@ -78,6 +80,7 @@ let routeVersion = 0,
   routeAbort = null,
   hls = null,
   disposeEmbed = null,
+  disposeReader = null,
   observer = null,
   toastTimer,
   libraryFilter = "all",
@@ -154,12 +157,7 @@ function progress(item, unit, extra = {}) {
     item,
     status: old.status === "completed" ? "completed" : "active",
     updatedAt: Date.now(),
-    progress: {
-      ...old.progress,
-      id: String(unit.id),
-      number: unit.number || unit.chapterNumber || "",
-      ...extra,
-    },
+    progress: nextProgress(old.progress, unit, extra),
   };
   persist("library", library);
   count();
@@ -190,7 +188,7 @@ function card(item, withStatus = false) {
           )
           .join("")}</select></div>`
       : ""
-  }</article>`;
+  }${withStatus && pr?.id ? `<a class="library-continue" href="${resumeLink(saved)}">${icon(item.kind === "anime" ? "play" : "book")}Continue ${esc(item.kind === "anime" ? "episode" : "chapter")}${pr.number !== "" && pr.number != null ? " " + esc(pr.number) : ""}${Number.isInteger(pr.page) ? ` · Page ${pr.page + 1}` : ""} →</a>` : ""}</article>`;
 }
 function section(title, subtitle, items, target, extra = "") {
   return `<section class="section"><div class="section-head"><div><h2>${title}</h2>${subtitle ? `<p class="subhead">${subtitle}</p>` : ""}</div>${target ? `<a href="${target}" class="text-link">Explore all ${icon("arrow")}</a>` : ""}</div><div class="collection-grid ${extra}">${items.map((i) => card(i)).join("")}</div></section>`;
@@ -456,14 +454,15 @@ async function browse(kind, params, version) {
   }
 }
 function libraryPage(params) {
-  libraryFilter = params.get("type") || "all";
+  libraryFilter = ["anime", "manga", "manhwa"].includes(params.get("type")) ? params.get("type") : "all";
+  const query = (params.get("q") || "").slice(0, 150);
   let entries = Object.values(library)
     .filter(
       (v) =>
-        v.item && (libraryFilter === "all" || v.item.kind === libraryFilter),
+        v.item && (libraryFilter === "all" || v.item.kind === libraryFilter) && v.item.title.toLowerCase().includes(query.toLowerCase()),
     )
     .sort((a, b) => b.updatedAt - a.updatedAt);
-  const status = params.get("status") || "all";
+  const status = ["planned", "active", "completed"].includes(params.get("status")) ? params.get("status") : "all";
   if (status !== "all") entries = entries.filter((v) => v.status === status);
   const values = Object.values(library);
   main.innerHTML = `<div class="content"><div class="page-head"><div class="eyebrow">A place for your favorites</div><h1>My library<span style="color:var(--accent)">.</span></h1><p>All the worlds you’re exploring, and the ones waiting for you.</p></div><div class="library-summary"><div><strong>${values.length}</strong><small>Saved stories</small></div><div><strong>${values.filter((v) => v.status === "active").length}</strong><small>In progress</small></div><div><strong>${values.filter((v) => v.status === "completed").length}</strong><small>Completed</small></div></div><div class="filter-bar"><div class="type-tabs">${[
@@ -490,8 +489,12 @@ function libraryPage(params) {
       "",
     )}</select></label></div><div class="collection-grid">${entries.length ? entries.map((v) => card(v.item, true)).join("") : empty("Your next chapter starts here", "Save a title with the + button and it will have a home right here.", `<a href="#home" class="button">Discover stories ${icon("arrow")}</a>`)}</div><p class="tiny-label" style="margin-top:25px">Your library is saved in this browser. Export a backup from your profile to move it to another device.</p></div>`;
   $("#library-filter").onchange = (e) => {
-    location.hash = `library?type=${libraryFilter}&status=${e.target.value}`;
+    location.hash = `library?${new URLSearchParams({type: libraryFilter, status: e.target.value, q: query})}`;
   };
+  $(".library-summary").insertAdjacentHTML("afterend", `<form id="library-search" class="catalog-search"><input id="library-query" type="search" maxlength="150" aria-label="Search saved titles" placeholder="Search your saved stories…" value="${esc(query)}"><button class="button secondary">Search library</button>${query ? `<a class="button secondary" href="#library?type=${libraryFilter}&status=${status}">Clear</a>` : ""}</form>`);
+  $("#library-search").onsubmit = e => { e.preventDefault(); location.hash = `library?${new URLSearchParams({type: libraryFilter, status, q: $("#library-query").value.trim()})}`; };
+  document.querySelectorAll(".type-tabs a").forEach(a => { const url = new URL(a.href); if (query) a.href = url.hash + "&q=" + encodeURIComponent(query); });
+  if (!entries.length && Object.keys(library).length) $(".collection-grid").innerHTML = empty("No saved stories match", "Try another title, type, or status filter.", '<a class="button secondary" href="#library">Show my whole library</a>');
 }
 async function searchPage(params, version) {
   const q = params.get("q") || "";
@@ -893,23 +896,28 @@ async function readerPage(key, params, version) {
     const saved = library[key]?.progress;
     readerIndex =
       saved?.id === String(unit.id)
-        ? Math.min(saved.page || 0, readerPages.length - 1)
+        ? pageIndex(saved.page, readerPages.length)
         : 0;
     const idx = activeUnits.findIndex((u) => u.id === unit.id),
-      next = activeUnits[idx + 1];
+      next = activeUnits[idx + 1], previous = activeUnits[idx - 1];
     $(".reader-toolbar").innerHTML =
       `<a href="${link(item)}">← ${esc(item.title)}</a><h2>${esc(unit.title || "Chapter " + (unit.chapterNumber || idx + 1))}</h2><div class="reader-mode"><button class="chip active" data-mode="scroll">Scroll</button><button class="chip" data-mode="paged">Pages</button></div><span class="reader-progress" id="reader-progress"></span>`;
     $("#reader-body").innerHTML =
       `<div class="reader-pages" id="reader-pages">${readerPages.map((p, i) => `<img src="${esc(safeUrl(p.img || p.url))}" alt="Page ${i + 1}" data-page="${i}" loading="${i < 2 ? "eager" : "lazy"}" referrerpolicy="no-referrer">`).join("")}</div><div class="reader-controls"><button class="button secondary" id="prev-page">← Previous page</button><button class="button secondary" id="next-page">Next page →</button><button class="button" id="chapter-done">Mark chapter read</button>${next ? `<a class="button secondary" href="#read/${encodeURIComponent(key)}?unit=${encodeURIComponent(next.id)}">Next chapter →</a>` : ""}</div>`;
     // Resume in single-page mode to avoid lazy image layout shifting the saved position.
-    readerMode = readerIndex > 0 ? "paged" : "scroll";
+    readerMode = readerIndex > 0 ? "paged" : prefs.readerMode;
+    const chapterLink = entry => `#read/${encodeURIComponent(key)}?unit=${encodeURIComponent(entry.id)}`;
+    $(".reader-toolbar").insertAdjacentHTML("beforeend", `<form id="page-jump" class="page-jump"><label for="reader-page-number">Page</label><input id="reader-page-number" type="number" min="1" max="${readerPages.length}" value="${readerIndex + 1}" required aria-label="Jump to page"><button class="button secondary">Go</button></form><div class="reader-quick-pages"><button class="button secondary" id="quick-prev-page" aria-label="Previous reader page">←</button><button class="button secondary" id="quick-next-page" aria-label="Next reader page">→</button></div>`);
+    $("#reader-body").insertAdjacentHTML("afterbegin", `<nav class="reader-navigation" aria-label="Chapter navigation">${previous ? `<a class="button secondary" href="${chapterLink(previous)}">← Previous listed chapter</a>` : ""}<label>Loaded chapters <select id="reader-chapter">${activeUnits.map(c => `<option value="${esc(c.id)}" ${c.id === unit.id ? "selected" : ""}>${esc(c.title || "Chapter " + (c.chapterNumber ?? "extra"))}</option>`).join("")}</select></label>${next ? `<a class="button secondary" href="${chapterLink(next)}">Next listed chapter →</a>` : ""}<a class="text-link" href="${link(item)}">All chapter options</a><button class="button secondary" id="reload-chapter">Reload chapter</button><small>Only loaded chapters are shown; gaps may exist. In Pages mode, use ← / → to turn pages.</small></nav>`);
+    $("#reader-chapter").onchange = e => { location.hash = chapterLink({ id: e.target.value }); };
+    $("#reload-chapter").onclick = () => { detailCache.delete(key); render(); };
     $("#reader-body").insertAdjacentHTML("afterbegin", sourceCredits(data, unit));
     $("#reader-body").insertAdjacentHTML("afterbegin", '<p class="notice error" id="reader-image-error" role="status" hidden></p>');
     $("#reader-pages").querySelectorAll("img").forEach(img => {
       img.onerror = () => {
         if (version !== routeVersion) return;
         $("#reader-image-error").hidden = false;
-        $("#reader-image-error").innerHTML = `Some pages could not load from the image host. Reload the chapter, use the source link below, or <a href="#search?type=${item.kind}&q=${encodeURIComponent(item.title)}">find another edition</a>.`;
+        $("#reader-image-error").innerHTML = `Some pages could not load from the image host. Use Reload chapter above to retry, or <a href="${link(item)}">check chapter and publisher options</a>. Your last position is saved.`;
         img.alt = "Page could not load. The image source may be unavailable.";
         img.style.minHeight = "160px";
       };
@@ -921,6 +929,9 @@ async function readerPage(key, params, version) {
       progress(item, unit, { page: readerIndex });
       $("#prev-page").disabled = readerIndex === 0;
       $("#next-page").disabled = readerIndex === readerPages.length - 1;
+      $("#quick-prev-page").disabled = readerIndex === 0;
+      $("#quick-next-page").disabled = readerIndex === readerPages.length - 1;
+      if (document.activeElement !== $("#reader-page-number")) $("#reader-page-number").value = readerIndex + 1;
     };
     const renderMode = () => {
       observer?.disconnect();
@@ -933,14 +944,15 @@ async function readerPage(key, params, version) {
         );
       document
         .querySelectorAll("[data-mode]")
-        .forEach((b) =>
-          b.classList.toggle("active", b.dataset.mode === readerMode),
-        );
+        .forEach((b) => {
+          b.classList.toggle("active", b.dataset.mode === readerMode);
+          b.setAttribute("aria-pressed", String(b.dataset.mode === readerMode));
+        });
       if (readerMode === "scroll") {
         observer = new IntersectionObserver(
           (entries) => {
             for (const en of entries) {
-              if (en.isIntersecting) {
+              if (version === routeVersion && en.isIntersecting && en.target.complete && en.target.naturalWidth > 0) {
                 readerIndex = Number(en.target.dataset.page);
                 update();
               }
@@ -972,6 +984,12 @@ async function readerPage(key, params, version) {
     };
     $("#prev-page").onclick = () => go(-1);
     $("#next-page").onclick = () => go(1);
+    $("#quick-prev-page").onclick = () => go(-1);
+    $("#quick-next-page").onclick = () => go(1);
+    $("#page-jump").onsubmit = e => { e.preventDefault(); const target = pageIndex(Number($("#reader-page-number").value) - 1, readerPages.length); readerMode = "paged"; go(target - readerIndex); };
+    const onReaderKey = e => { const delta = readerKey(e, readerMode); if (delta) { e.preventDefault(); go(delta); } };
+    document.addEventListener("keydown", onReaderKey);
+    disposeReader = () => document.removeEventListener("keydown", onReaderKey);
     $("#chapter-done").onclick = () => {
       markDone(item, unit);
       toast("Chapter marked as read");
@@ -980,6 +998,8 @@ async function readerPage(key, params, version) {
       (b) =>
         (b.onclick = () => {
           readerMode = b.dataset.mode;
+          prefs.readerMode = readerMode;
+          persist("settings", { autoplay: prefs.autoplay, readerMode });
           renderMode();
         }),
     );
@@ -987,7 +1007,8 @@ async function readerPage(key, params, version) {
   } catch (e) {
     if (version === routeVersion)
       $("#reader-body").innerHTML =
-        `<div class="content section">${empty("Chapter unavailable", esc(networkError(e)), `<a href="${link(item)}" class="button secondary">Back to chapters</a>`)}</div>`;
+        `<div class="content section">${empty("Chapter unavailable", esc(networkError(e)), `<button class="button" id="retry-reader">Try chapter again</button><a href="${link(item)}" class="button secondary">Back to chapters</a>`)}</div>`;
+    if (version === routeVersion && $("#retry-reader")) $("#retry-reader").onclick = () => { detailCache.delete(key); render(); };
   }
 }
 function updateProfileAvatar() {
@@ -1033,7 +1054,7 @@ function profilePage() {
   $("#profile-name").oninput = (e) => e.target.setCustomValidity("");
   $("#autoplay").onchange = (e) => {
     prefs.autoplay = e.target.checked;
-    persist("settings", { autoplay: prefs.autoplay });
+    persist("settings", { autoplay: prefs.autoplay, readerMode: prefs.readerMode });
     toast("Playback preference saved");
   };
   $("#export-library").onclick = () => {
@@ -1106,6 +1127,8 @@ async function render() {
   routeAbort?.abort();
   disposeEmbed?.();
   disposeEmbed = null;
+  disposeReader?.();
+  disposeReader = null;
   routeAbort = new AbortController();
   const oldVideo = $("#video");
   if (oldVideo) oldVideo.pause();
@@ -1217,6 +1240,13 @@ $("#confirm-dialog").addEventListener("close", () => {
   }
 });
 window.addEventListener("hashchange", render);
+document.addEventListener("error", e => {
+  const img = e.target;
+  if (img?.tagName === "IMG" && !img.closest("#reader-pages") && !img.dataset.fallback) {
+    img.dataset.fallback = "true";
+    img.src = new URL("assets/cover-unavailable.svg", location.href).href;
+  }
+}, true);
 window.addEventListener("storage", (e) => {
   if (e.key === "yoru-library") {
     library = read("library", {});

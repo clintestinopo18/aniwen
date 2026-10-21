@@ -2,7 +2,13 @@
 
 A responsive anime, manga, and manhwa website with a curated starter collection and self-hosted provider connections. Built with HTML, CSS, and browser JavaScript. The included Node server serves the site, Consumet, and an Aniwatch-compatible API using the official `aniwatch` npm package.
 
-## Run locally
+## Reading and library controls
+
+The reader supports page jumping, keyboard left/right page turns in Pages mode, previous/next listed chapters, and reloading a failed chapter. It saves the current chapter and page on this browser; switching chapters resets the page instead of inheriting the previous chapter's position. Saved library cards have Continue links, and the library can be searched by title. Reading mode is remembered. Missing covers use a local fallback; failed chapter images are reported rather than replaced with unrelated artwork.
+
+Source chapter lists may be incomplete, and image hosts may fail. Listed chapters and publisher links do not guarantee a complete, free-to-read series. Library and progress are browser-local, not synced accounts.
+
+## Local setup
 
 Requires Node.js 22 or later. From this folder:
 
