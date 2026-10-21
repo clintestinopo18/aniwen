@@ -1,5 +1,11 @@
 # Yoru
 
+## Current hosted address
+
+The replacement Render site and API are at `https://yoru-brbl.onrender.com` (`/api` for API calls), service `srv-dbcdtj4s728c73erehs0`, on the free plan in Singapore. Render assigned the `-brbl` suffix when creating the service named `yoru`; the exact `yoru.onrender.com` address was not assigned. The original `aniwen-consumet.onrender.com` service remains online as `yoru-legacy` and was not deleted. The replacement accepts requests from its own origin, the original Render origin, and the existing private Sites origin. Render manages these environment variables directly, not through a Blueprint sync.
+
+Browser-local library and progress are specific to each website origin. To move saved data from the old Render URL, export the library from its Profile page and import the backup at the new URL. The private Sites address and its browser-local data are unchanged. Older deployment notes below document the original service.
+
 A responsive anime, manga, and manhwa website with a curated starter collection and self-hosted provider connections. Built with HTML, CSS, and browser JavaScript. The included Node server serves the site, Consumet, and an Aniwatch-compatible API using the official `aniwatch` npm package.
 
 ## Reading and library controls
