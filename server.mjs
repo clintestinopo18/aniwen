@@ -125,7 +125,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/health")
         return json(res, 200, {
           service: "Yoru anime and manga API",
-          version: "1.4.1",
+          version: "1.5.0",
           library: "@consumet/extensions@1.8.8",
           aniwatch: { version: "2.27.9", domain: process.env.ANIWATCH_DOMAIN, api: "/api/v2/hianime" },
           note: "Server readiness only; external search and playback availability are not guaranteed.",

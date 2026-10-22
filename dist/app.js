@@ -403,7 +403,9 @@ async function browse(kind, params, version) {
     const data = await api(`${groupFor(kind)}/${provider}/catalog?${new URLSearchParams({ page: String(page), sort, kind, genre, search: query })}`);
     if (version !== routeVersion) return;
     const items = (data.results || []).filter(r => r.id).map(r => { const item = normalize(r, kind, provider, prefs.base); remember(item); return item; });
-    if (!anime) $(".result-count").textContent = `Page ${page} · ${Number(data.total || 0).toLocaleString()} titles · MangaDex`;
+    $(".result-count").textContent = anime
+      ? `Page ${page} · ${data.catalogSource || "Anime catalog · MegaPlay"}`
+      : `Page ${page} · ${Number(data.total || 0).toLocaleString()} titles · MangaDex`;
     $("#catalog-results").innerHTML = items.length ? `<div class="collection-grid">${items.map(i => card(i)).join("")}</div>` : empty("No titles found", "Try another search or filter.");
     $("#catalog-pagination").innerHTML = `${page > 1 ? `<a class="button secondary" href="${esc(route(page - 1))}">← Previous page</a>` : ""}<span>Page ${page}</span>${data.hasNextPage && page < 10000 ? `<a class="button secondary" href="${esc(route(page + 1))}">Next page →</a>` : ""}`;
     if (!anime) {

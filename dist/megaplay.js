@@ -4,9 +4,10 @@ export function positiveId(value, max = 10000000) {
     throw Object.assign(new Error("Invalid anime or episode number."), { status: 400 });
   return Number(value);
 }
-export function embedUrl(id, episode, language = "sub") {
+export function embedUrl(id, episode, language = "sub", source = "ani") {
   if (!["sub", "dub"].includes(language)) throw Object.assign(new Error("Choose sub or dub."), { status: 400 });
-  return `${MEGAPLAY_ORIGIN}/stream/ani/${positiveId(id)}/${positiveId(episode, 5000)}/${language}`;
+  if (!["ani", "mal"].includes(source)) throw Object.assign(new Error("Choose a supported anime catalog."), { status: 400 });
+  return `${MEGAPLAY_ORIGIN}/stream/${source}/${positiveId(id)}/${positiveId(episode, 5000)}/${language}`;
 }
 // Only trust the exact origin AND the current iframe window, never sibling frames.
 export function playerEvent(event, frameWindow) {

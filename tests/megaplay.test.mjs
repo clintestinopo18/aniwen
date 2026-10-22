@@ -6,9 +6,11 @@ import { createMegaPlayProvider, airedEpisodes } from "../providers/megaplay.mjs
 test("builds only documented, bounded AniList embeds", () => {
   assert.equal(embedUrl(154587, 1), "https://megaplay.buzz/stream/ani/154587/1/sub");
   assert.equal(embedUrl(154587, 2, "dub"), "https://megaplay.buzz/stream/ani/154587/2/dub");
+  assert.equal(embedUrl(52991, 1, "sub", "mal"), "https://megaplay.buzz/stream/mal/52991/1/sub");
   for (const id of ["../x", "https://example.com", 0, -1, 1.5, "1?x=y", 10000001]) assert.throws(() => embedUrl(id, 1), { status: 400 });
   assert.throws(() => embedUrl(1, 5001), { status: 400 });
   assert.throws(() => embedUrl(1, 1, "bad"), { status: 400 });
+  assert.throws(() => embedUrl(1, 1, "sub", "bad"), { status: 400 });
 });
 test("accepts progress only from the current trusted iframe", () => {
   const frame = {};
@@ -67,4 +69,44 @@ test("browses beyond the starter collection with bounded filters and pagination"
   assert.match(request.query, /isAdult:false/);
   await assert.rejects(p.browse({ sort: "unsafe" }), { status: 400 });
   await assert.rejects(p.browse({ page: -1 }), { status: 400 });
+});
+
+test("falls back to Jikan catalog results when AniList is unavailable", async () => {
+  const calls = [];
+  const p = createMegaPlayProvider(async (url) => {
+    calls.push(String(url));
+    if (url === "https://graphql.anilist.co") {
+      return { ok: false, status: 403, json: async () => ({ errors: [{ message: "disabled" }] }) };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [{ mal_id: 52991, title: "Sousou no Frieren", title_english: "Frieren: Beyond Journey's End", episodes: 28, status: "Finished Airing", images: { webp: { large_image_url: "https://example.com/frieren.webp" } }, genres: [{ name: "Fantasy" }] }],
+        pagination: { current_page: 1, has_next_page: true },
+      }),
+    };
+  });
+  const result = await p.browse({ page: 1, sort: "popular", genre: "Fantasy" });
+  assert.equal(result.results[0].id, "mal-52991");
+  assert.equal(result.results[0].totalEpisodes, 28);
+  assert.equal(result.catalogSource, "Jikan / MyAnimeList · MegaPlay");
+  assert.match(calls[1], /api\.jikan\.moe\/v4\/anime\?/);
+  assert.match(calls[1], /genres=10/);
+});
+
+test("loads Jikan title details and builds MegaPlay MAL episode embeds", async () => {
+  const p = createMegaPlayProvider(async (url) => {
+    assert.match(String(url), /api\.jikan\.moe\/v4\/anime\/52991\/full$/);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { mal_id: 52991, title: "Sousou no Frieren", title_english: "Frieren", episodes: 28, status: "Finished Airing", genres: [] } }),
+    };
+  });
+  const info = await p.fetchAnimeInfo("mal-52991");
+  assert.equal(info.episodes.length, 28);
+  assert.deepEqual(info.episodes[0], { id: "mal-52991:1", number: 1, title: "Episode 1" });
+  const watch = await p.fetchEpisodeSources("mal-52991:2", "dub");
+  assert.equal(watch.embed.url, "https://megaplay.buzz/stream/mal/52991/2/dub");
 });
